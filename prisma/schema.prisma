@@ -1,0 +1,144 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id                 Int      @id @default(autoincrement())
+  email              String   @unique
+  password           String
+  name               String
+  role               String   @default("AGENT") // ADMIN o AGENT
+  mustChangePassword Boolean  @default(false)
+  createdAt          DateTime @default(now())
+}
+
+model Client {
+  id                Int       @id @default(autoincrement())
+  code              String?   @unique
+  name              String
+  contact           String?
+  phone             String?
+  nit               String?
+  country           String?
+  city              String?
+  observations      String?
+  notificationEmail String?
+  billingEmail      String?
+  hasIva            Boolean   @default(false)
+  hasReteIva        Boolean   @default(false)
+  sales             Sale[]
+  packages          Package[] // Un cliente puede tener paquetes activos
+  createdAt         DateTime  @default(now())
+}
+
+model Service {
+  id           Int           @id @default(autoincrement())
+  name         String
+  cost         Float
+  observations String?
+  sales        Sale[]
+  packageItems PackageItem[] // Opposite relation to PackageItem
+  createdAt    DateTime      @default(now())
+}
+
+model Sale {
+  id          Int      @id @default(autoincrement())
+  clientId    Int?
+  client      Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  clientName  String? // Snapshot del nombre por si el cliente es eliminado
+  serviceId   Int? // Mantenemos esto si fue una venta unitaria. Si fue paquete, puede ser null.
+  service     Service? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  serviceName String? // Snapshot del nombre
+  salePrice   Float
+  amountPaid  Float    @default(0)
+
+  // Facturación Específica e Impuestos
+  invoiceNumber  String? // Número manual de factura (ej. FV-001)
+  invoiceFileUrl String? // Ruta al documento PDF o Imagen de la factura
+  hasIva         Boolean @default(false)
+  hasReteIva     Boolean @default(false)
+
+  // Para los paquetes, la fecha de vencimiento individual de ESTA factura.
+  paymentDeadline DateTime?
+  cycleStartDate  DateTime? // Inicio del ciclo que cubre esta factura
+  cycleEndDate    DateTime? // Fin del ciclo que cubre esta factura
+
+  notes    String? // Detalles o apuntes varios del paquete vendido.
+  date     DateTime  @default(now())
+  status   String    @default("PENDING") // PENDING, PARTIAL, PAID
+  payments Payment[]
+}
+
+model Package {
+  id                  Int           @id @default(autoincrement())
+  clientId            Int
+  client              Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  isActive            Boolean       @default(true) // Si está apagado, no genera cobros
+  cycleStart          Int           @default(1) // Día límite para iniciar cobro (1-31)
+  cycleEnd            Int           @default(30) // Día de fin de cobertura (informativo)
+  paymentDeadlineDays Int           @default(5) // Días de plazo después del `cycleStart`
+  nextBillingDate     DateTime // Cuándo se debe generar la PRÓXIMA factura ("Sale")
+  items               PackageItem[]
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+}
+
+model PackageItem {
+  id          Int      @id @default(autoincrement())
+  packageId   Int
+  package     Package  @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  serviceId   Int
+  service     Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  quantity    Int      @default(1)
+  customPrice Float // El precio negociado con ese cliente (Base u otro)
+  details     String? // Detalles específicos del servicio (ej. Línea telefónica asignada)
+  isActive    Boolean  @default(true) // Permite encender/apagar este servicio sin borrar su precio
+  createdAt   DateTime @default(now())
+}
+
+model Payment {
+  id     Int      @id @default(autoincrement())
+  saleId Int
+  sale   Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  amount Float
+  method String? // Ej. TRANSFERENCIA, EFECTIVO, PAYPAL
+  date   DateTime @default(now())
+}
+
+model Expense {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  amount      Float
+  hasIva      Boolean  @default(false)
+  baseAmount  Float?
+  ivaAmount   Float?
+  provider    String?
+  receiptUrl  String?
+  date        DateTime @default(now())
+}
+
+model PaymentMethod {
+  id       Int     @id @default(autoincrement())
+  name     String  @unique
+  isActive Boolean @default(true)
+}
+
+model OtherExpense {
+  id               Int      @id @default(autoincrement())
+  productOrService String
+  quantity         Int
+  date             DateTime @default(now())
+  paymentMethod    String?
+  moneyOrigin      String?
+  provider         String?
+  receiptUrl       String?
+  unitValue        Float
+  totalValue       Float
+  createdAt        DateTime @default(now())
+}
