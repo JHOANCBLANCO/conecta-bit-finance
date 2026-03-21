@@ -97,22 +97,7 @@ export default function ClientManager({ initialClients, services, role }: { init
         });
     };
 
-    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (!e.target.files || e.target.files.length === 0 || !isUploadingForSaleId) return;
-        const file = e.target.files[0];
-        if (file.size > 5 * 1024 * 1024) { alert("El archivo no puede pesar más de 5MB"); return; }
-        try {
-            const formData = new FormData();
-            formData.append("file", file);
-            await uploadInvoiceFile(isUploadingForSaleId, formData);
-            if (selectedClient) loadClientDetails(selectedClient.id);
-        } catch (err: any) { alert(err.message || "Error al subir pdf"); }
-        finally { setIsUploadingForSaleId(null); }
-    };
 
-    useEffect(() => {
-        if (isUploadingForSaleId && fileInputRef.current) fileInputRef.current.click();
-    }, [isUploadingForSaleId]);
 
     const filteredClients = initialClients.filter(client =>
         client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
