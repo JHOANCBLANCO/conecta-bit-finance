@@ -673,7 +673,7 @@ export async function getUpcomingBillings() {
 // ----------------------
 // FILE UPLOADS (INVOICES)
 // ----------------------
-import { writeFile, unlink } from 'fs/promises';
+import { writeFile, unlink, mkdir } from 'fs/promises';
 import { join } from 'path';
 
 export async function uploadInvoiceFile(saleId: number, formData: FormData) {
@@ -693,8 +693,9 @@ export async function uploadInvoiceFile(saleId: number, formData: FormData) {
     const uploadDir = join(process.cwd(), 'public', 'uploads', 'invoices');
     const filepath = join(uploadDir, filename);
 
-    // Ensure the directory exists (handled by mkdir -p previously or node fs)
+    // Ensure the directory exists
     try {
+        await mkdir(uploadDir, { recursive: true });
         await writeFile(filepath, buffer);
     } catch (error) {
         console.error("Error saving file:", error);
