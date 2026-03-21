@@ -10,6 +10,7 @@ export default function ExpenseManager({ initialExpenses, role }: { initialExpen
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [selectedExpense, setSelectedExpense] = useState<any>(null);
     const [isUploadingForExpenseId, setIsUploadingForExpenseId] = useState<number | null>(null);
+    const uploadExpenseIdRef = React.useRef<number | null>(null);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
     // States for ADD Modal
@@ -51,10 +52,11 @@ export default function ExpenseManager({ initialExpenses, role }: { initialExpen
                         <Plus size={20} className="mr-2" /> Registrar Gasto
                     </button>
                     <form action={(formData) => {
-                        if (!isUploadingForExpenseId) return;
+                        const targetId = uploadExpenseIdRef.current;
+                        if (!targetId) return;
                         handleAction(
-                            () => uploadExpenseReceipt(isUploadingForExpenseId, formData),
-                            () => { setIsUploadingForExpenseId(null); if(fileInputRef.current) fileInputRef.current.value = ''; alert('Recibo subido con éxito'); }
+                            () => uploadExpenseReceipt(targetId, formData),
+                            () => { setIsUploadingForExpenseId(null); uploadExpenseIdRef.current = null; if(fileInputRef.current) fileInputRef.current.value = ''; alert('Recibo subido con éxito'); }
                         );
                     }}>
                         <input type="file" name="file" ref={fileInputRef} className="hidden" accept=".pdf,image/*" onChange={(e) => {
@@ -113,6 +115,7 @@ export default function ExpenseManager({ initialExpenses, role }: { initialExpen
                                             ) : (
                                                 <button onClick={() => {
                                                     setIsUploadingForExpenseId(expense.id);
+                                                    uploadExpenseIdRef.current = expense.id;
                                                     setTimeout(() => fileInputRef.current?.click(), 0);
                                                 }} className="text-slate-500 hover:text-blue-600 p-2 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors mr-1" title="Subir Recibo">
                                                     <FileUp size={18} />

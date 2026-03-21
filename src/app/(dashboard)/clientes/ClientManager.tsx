@@ -42,6 +42,7 @@ export default function ClientManager({ initialClients, services, role }: { init
     const [selectedSaleForEdit, setSelectedSaleForEdit] = useState<any>(null);
     const [saleDeleteId, setSaleDeleteId] = useState<number | null>(null);
     const [isUploadingForSaleId, setIsUploadingForSaleId] = useState<number | null>(null);
+    const uploadSaleIdRef = React.useRef<number | null>(null);
 
     // View Invoice Details State
     const [isInvoiceDetailsModalOpen, setIsInvoiceDetailsModalOpen] = useState(false);
@@ -883,6 +884,7 @@ export default function ClientManager({ initialClients, services, role }: { init
                                                                         ) : (
                                                                             <button onClick={() => {
                                                                                 setIsUploadingForSaleId(sale.id);
+                                                                                uploadSaleIdRef.current = sale.id;
                                                                                 setTimeout(() => fileInputRef.current?.click(), 0);
                                                                             }} className="p-2 bg-slate-50 text-slate-400 hover:text-slate-600 hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors" title="Subir PDF">
                                                                                 <Upload size={16} />
@@ -1331,18 +1333,21 @@ export default function ClientManager({ initialClients, services, role }: { init
             )}
 
             <form action={(formData) => {
-                if (!isUploadingForSaleId) return;
+                const targetId = uploadSaleIdRef.current;
+                if (!targetId) return;
                 const file = formData.get("file") as File;
                 if (file && file.size > 5 * 1024 * 1024) {
                     alert("El archivo no puede pesar más de 5MB");
                     setIsUploadingForSaleId(null);
+                    uploadSaleIdRef.current = null;
                     if(fileInputRef.current) fileInputRef.current.value = '';
                     return;
                 }
                 handleAction(
-                    () => uploadInvoiceFile(isUploadingForSaleId, formData),
+                    () => uploadInvoiceFile(targetId, formData),
                     () => {
                         setIsUploadingForSaleId(null);
+                        uploadSaleIdRef.current = null;
                         if(fileInputRef.current) fileInputRef.current.value = '';
                         if (selectedClient) loadClientDetails(selectedClient.id);
                     }
