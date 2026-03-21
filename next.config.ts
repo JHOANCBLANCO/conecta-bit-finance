@@ -6,6 +6,7 @@ const nextConfig: NextConfig = {
   experimental: {
     serverActions: {
         bodySizeLimit: '20mb',
+        allowedOrigins: ['*.github.dev', '*.app.github.dev', 'localhost:3000'],
     },
   },
   // @ts-ignore - Next.js types for devIndicators sometimes lag behind or vary by exact minor version
