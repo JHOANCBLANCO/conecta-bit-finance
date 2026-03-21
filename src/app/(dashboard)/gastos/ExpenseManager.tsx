@@ -50,18 +50,17 @@ export default function ExpenseManager({ initialExpenses, role }: { initialExpen
                     }} className="bg-rose-600 hover:bg-rose-700 text-white px-6 py-2.5 rounded-lg font-medium flex items-center justify-center transition-colors shadow-sm whitespace-nowrap">
                         <Plus size={20} className="mr-2" /> Registrar Gasto
                     </button>
-                    <input type="file" ref={fileInputRef} className="hidden" accept=".pdf,image/*" onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (!file || !isUploadingForExpenseId) return;
-                        
-                        const formData = new FormData();
-                        formData.append('file', file);
-                        
+                    <form action={(formData) => {
+                        if (!isUploadingForExpenseId) return;
                         handleAction(
                             () => uploadExpenseReceipt(isUploadingForExpenseId, formData),
                             () => { setIsUploadingForExpenseId(null); if(fileInputRef.current) fileInputRef.current.value = ''; alert('Recibo subido con éxito'); }
                         );
-                    }}/>
+                    }}>
+                        <input type="file" name="file" ref={fileInputRef} className="hidden" accept=".pdf,image/*" onChange={(e) => {
+                            if (e.target.files?.[0]) e.target.form?.requestSubmit();
+                        }}/>
+                    </form>
                 </div>
 
                 <div className="overflow-x-auto">

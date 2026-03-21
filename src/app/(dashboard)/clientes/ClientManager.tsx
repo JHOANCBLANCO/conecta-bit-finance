@@ -188,18 +188,7 @@ export default function ClientManager({ initialClients, services, role }: { init
         URL.revokeObjectURL(url);
     };
 
-    const handleFileUploadSale = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (!e.target.files || e.target.files.length === 0 || !isUploadingForSaleId) return;
-        const file = e.target.files[0];
-        if (file.size > 5 * 1024 * 1024) { alert("El archivo no puede pesar más de 5MB"); return; }
-        try {
-            const formData = new FormData();
-            formData.append("file", file);
-            await uploadInvoiceFile(isUploadingForSaleId, formData);
-            if (selectedClient) loadClientDetails(selectedClient.id);
-        } catch (err: any) { alert(err.message || "Error al subir pdf"); }
-        finally { setIsUploadingForSaleId(null); }
-    };
+
 
     return (
         <div className="space-y-6 animate-in fade-in duration-300">
@@ -1341,7 +1330,28 @@ export default function ClientManager({ initialClients, services, role }: { init
                 </div>
             )}
 
-            <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept=".pdf,image/*" />
+            <form action={(formData) => {
+                if (!isUploadingForSaleId) return;
+                const file = formData.get("file") as File;
+                if (file && file.size > 5 * 1024 * 1024) {
+                    alert("El archivo no puede pesar más de 5MB");
+                    setIsUploadingForSaleId(null);
+                    if(fileInputRef.current) fileInputRef.current.value = '';
+                    return;
+                }
+                handleAction(
+                    () => uploadInvoiceFile(isUploadingForSaleId, formData),
+                    () => {
+                        setIsUploadingForSaleId(null);
+                        if(fileInputRef.current) fileInputRef.current.value = '';
+                        if (selectedClient) loadClientDetails(selectedClient.id);
+                    }
+                );
+            }}>
+                <input type="file" name="file" ref={fileInputRef} className="hidden" accept=".pdf,image/*" onChange={(e) => {
+                    if (e.target.files?.[0]) e.target.form?.requestSubmit();
+                }} />
+            </form>
         </div>
     );
 }

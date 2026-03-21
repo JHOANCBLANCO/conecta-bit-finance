@@ -502,10 +502,7 @@ export default function SalesManager({ initialSales, clients, services, paymentM
                                 )}
                             </div>
                         ) : (
-                            <form onSubmit={(e) => {
-                                e.preventDefault();
-                                const form = e.target as HTMLFormElement;
-                                const formData = new FormData(form);
+                            <form action={(formData) => {
                                 handleAction(
                                     () => uploadInvoiceFile(selectedSale.id, formData),
                                     () => { setIsInvoiceModalOpen(false); setSelectedSale(null); }
