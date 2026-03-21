@@ -8,7 +8,7 @@ NC='\033[0m' # No Color
 
 clear
 echo "============================================================"
-echo "          INSTALADOR CONECTA-BIT FINANCE (LINUX)"
+echo "      INSTALADOR CONECTA-BIT FINANCE (MAC / LINUX)"
 echo "============================================================"
 echo
 
@@ -102,7 +102,11 @@ echo -e "${G} [OK] Compilación terminada con éxito.${NC}"
 echo
 
 # --- FINAL ---
-IP=$(hostname -I | awk '{print $1}')
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    IP=$(ipconfig getifaddr en0 || ipconfig getifaddr en1 || echo "localhost")
+else
+    IP=$(hostname -I | awk '{print $1}')
+fi
 echo "============================================================"
 echo "   INSTALACIÓN COMPLETADA CON ÉXITO"
 echo "============================================================"
