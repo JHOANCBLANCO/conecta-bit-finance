@@ -3,6 +3,7 @@
 import React, { useState, useTransition } from 'react';
 import { Plus, CreditCard, AlertCircle, CheckCircle2, TrendingUp, X, Trash2, List, FileText, UploadCloud, FileDown, Calendar, History, Eye } from 'lucide-react';
 import { addSale, addPayment, deleteSale, deletePayment, uploadInvoiceFile, deleteInvoiceFile, addPaymentMethod } from '@/app/actions';
+import InvoiceDetailsModal, { parseInvoiceItems } from '@/components/InvoiceDetailsModal';
 
 export default function SalesManager({ initialSales, clients, services, paymentMethods: initialPaymentMethods, role, initialFilter }: { initialSales: any[], clients: any[], services: any[], paymentMethods: any[], role: string, initialFilter?: string }) {
     const [isPending, startTransition] = useTransition();
@@ -174,11 +175,35 @@ export default function SalesManager({ initialSales, clients, services, paymentM
                                             {isClientDeleted && <span className="text-[10px] text-rose-500 dark:text-rose-400 font-semibold">(Borrado)</span>}
                                         </td>
                                         <td className="p-4">
-                                            <p className={`font-medium ${isServiceDeleted ? 'text-slate-500 dark:text-slate-400 italic' : 'text-slate-700 dark:text-slate-300'}`}>
-                                                {serviceName}
-                                            </p>
-                                            {isServiceDeleted && <span className="text-[10px] text-rose-500 font-semibold">(Borrado)</span>}
-                                            {sale.notes && <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 max-w-[150px] truncate" title={sale.notes}>{sale.notes}</p>}
+                                            {(() => {
+                                                const items = parseInvoiceItems(sale.notes);
+                                                if (items && items.length > 0) {
+                                                    return (
+                                                        <div className="space-y-1.5 max-w-[280px]">
+                                                            {items.map((item: any, idx: number) => (
+                                                                <div key={idx} className="flex items-start gap-1.5 text-xs">
+                                                                    <span className="shrink-0 w-4 h-4 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 flex items-center justify-center text-[10px] font-bold mt-0.5">{idx + 1}</span>
+                                                                    <div className="min-w-0">
+                                                                        <div className="flex items-center gap-1 flex-wrap">
+                                                                            {item.code && <span className="text-[9px] font-bold uppercase bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-1 py-0.5 rounded">{item.code}</span>}
+                                                                            <span className="font-medium text-slate-700 dark:text-slate-300 truncate">{item.name}</span>
+                                                                        </div>
+                                                                        {item.observations && <p className="text-[10px] text-amber-600 dark:text-amber-400 italic truncate">{item.observations}</p>}
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    );
+                                                }
+                                                return (
+                                                    <>
+                                                        <p className={`font-medium ${isServiceDeleted ? 'text-slate-500 dark:text-slate-400 italic' : 'text-slate-700 dark:text-slate-300'}`}>
+                                                            {serviceName}
+                                                        </p>
+                                                        {isServiceDeleted && <span className="text-[10px] text-rose-500 font-semibold">(Borrado)</span>}
+                                                    </>
+                                                );
+                                            })()}
                                         </td>
                                         {role === 'ADMIN' && (
                                             <>
@@ -534,119 +559,10 @@ export default function SalesManager({ initialSales, clients, services, paymentM
             )}
 
             {isInvoiceDetailsModalOpen && selectedInvoice && (
-                <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[80]">
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 w-full max-w-2xl shadow-2xl animate-in zoom-in-95 duration-200">
-                        <div className="flex justify-between items-start mb-6 border-b border-slate-100 dark:border-slate-800 pb-4">
-                            <div>
-                                <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100">Detalles de Factura</h3>
-                                <p className="text-sm text-slate-500 font-medium">#{selectedInvoice.invoiceNumber || 'S/N'}</p>
-                            </div>
-                            <button onClick={() => { setIsInvoiceDetailsModalOpen(false); setSelectedInvoice(null); }} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-2 rounded-lg bg-slate-100 dark:bg-slate-800 transition-colors">
-                                <X size={20} />
-                            </button>
-                        </div>
-                        
-                        <div className="space-y-6">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
-                                    <p className="text-[11px] uppercase tracking-wider font-bold text-slate-500 dark:text-slate-400 mb-1">Cliente</p>
-                                    <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{selectedInvoice.client?.name || selectedInvoice.clientName}</p>
-                                    <div className="mt-2 space-y-1 text-xs text-slate-600 dark:text-slate-400">
-                                        <p>{selectedInvoice.client?.phone && <span className="font-medium">Tel:</span>} {selectedInvoice.client?.phone}</p>
-                                        <p>{selectedInvoice.client?.nit && <span className="font-medium">NIT/CC:</span>} {selectedInvoice.client?.nit}</p>
-                                        <p>{selectedInvoice.client?.contact && <span className="font-medium">Contacto:</span>} {selectedInvoice.client?.contact}</p>
-                                    </div>
-                                </div>
-                                <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
-                                    <p className="text-[11px] uppercase tracking-wider font-bold text-slate-500 dark:text-slate-400 mb-1">Información</p>
-                                    <div className="space-y-2 text-sm text-slate-600 dark:text-slate-300 mt-2">
-                                        <div className="flex justify-between"><span className="font-medium">Fecha Emisión:</span> <span>{new Date(selectedInvoice.date).toLocaleDateString()}</span></div>
-                                        {selectedInvoice.paymentDeadline && <div className="flex justify-between"><span className="font-medium">Vencimiento:</span> <span>{new Date(selectedInvoice.paymentDeadline).toLocaleDateString()}</span></div>}
-                                        {selectedInvoice.cycleStartDate && <div className="flex justify-between"><span className="font-medium">Inicio Ciclo:</span> <span>{new Date(selectedInvoice.cycleStartDate).toLocaleDateString()}</span></div>}
-                                        {selectedInvoice.cycleEndDate && <div className="flex justify-between"><span className="font-medium">Fin Ciclo:</span> <span>{new Date(selectedInvoice.cycleEndDate).toLocaleDateString()}</span></div>}
-                                        <div className="flex justify-between"><span className="font-medium">Estado:</span> 
-                                            <span className={`font-bold ${selectedInvoice.salePrice - selectedInvoice.amountPaid <= 0 ? 'text-emerald-600' : selectedInvoice.amountPaid > 0 ? 'text-amber-600' : 'text-rose-600'}`}>
-                                                {selectedInvoice.salePrice - selectedInvoice.amountPaid <= 0 ? 'Pagado' : selectedInvoice.amountPaid > 0 ? 'Abono Parcial' : 'Pendiente'}
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
-                                <div className="bg-slate-50 dark:bg-slate-800/80 px-4 py-3 border-b border-slate-200 dark:border-slate-800">
-                                    <h4 className="font-bold text-slate-700 dark:text-slate-300 text-sm">Conceptos Facturados</h4>
-                                </div>
-                                <div className="p-4 bg-white dark:bg-slate-900">
-                                    <p className="text-sm text-slate-700 dark:text-slate-300 mb-4">{selectedInvoice.serviceName || selectedInvoice.service?.name}</p>
-                                    {selectedInvoice.notes && (
-                                        <div className="mb-4 text-xs text-slate-500 italic bg-amber-50 dark:bg-amber-900/10 p-2.5 rounded border border-amber-100 dark:border-amber-800">
-                                            <strong>Nota:</strong> {selectedInvoice.notes}
-                                        </div>
-                                    )}
-                                    
-                                    {(() => {
-                                        let tIva = 0;
-                                        let tReteIva = 0;
-                                        let tBase = selectedInvoice.salePrice;
-                                        
-                                        if (selectedInvoice.hasIva && selectedInvoice.hasReteIva) {
-                                            tBase = selectedInvoice.salePrice / 1.1615;
-                                            tIva = tBase * 0.19;
-                                            tReteIva = tIva * 0.15;
-                                        } else if (selectedInvoice.hasIva) {
-                                            tBase = selectedInvoice.salePrice / 1.19;
-                                            tIva = tBase * 0.19;
-                                        }
-
-                                        return (
-                                            <div className="space-y-2 border-t border-slate-100 dark:border-slate-800 pt-3">
-                                                <div className="flex justify-between text-sm text-slate-600 dark:text-slate-400">
-                                                    <span>Subtotal (Base)</span>
-                                                    <span>{formatCurrency(tBase)}</span>
-                                                </div>
-                                                {selectedInvoice.hasIva && (
-                                                    <div className="flex justify-between text-sm text-slate-600 dark:text-slate-400">
-                                                        <span>IVA (19%)</span>
-                                                        <span>{formatCurrency(tIva)}</span>
-                                                    </div>
-                                                )}
-                                                {selectedInvoice.hasReteIva && (
-                                                    <div className="flex justify-between text-sm text-rose-600 dark:text-rose-400">
-                                                        <span>ReteIVA (15%)</span>
-                                                        <span>-{formatCurrency(tReteIva)}</span>
-                                                    </div>
-                                                )}
-                                                <div className="flex justify-between font-bold text-lg pt-2 border-t border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100">
-                                                    <span>Total Factura</span>
-                                                    <span>{formatCurrency(selectedInvoice.salePrice)}</span>
-                                                </div>
-                                                {selectedInvoice.amountPaid > 0 && (
-                                                    <div className="flex justify-between font-bold text-emerald-600 dark:text-emerald-400 mt-1">
-                                                        <span>Total Pagado</span>
-                                                        <span>{formatCurrency(selectedInvoice.amountPaid)}</span>
-                                                    </div>
-                                                )}
-                                                {selectedInvoice.salePrice - selectedInvoice.amountPaid > 0 && (
-                                                    <div className="flex justify-between font-bold text-rose-600 dark:text-rose-400 mt-1">
-                                                        <span>Saldo Pendiente</span>
-                                                        <span>{formatCurrency(selectedInvoice.salePrice - selectedInvoice.amountPaid)}</span>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        );
-                                    })()}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="mt-6 flex justify-end">
-                            <button onClick={() => { setIsInvoiceDetailsModalOpen(false); setSelectedInvoice(null); }} className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-6 py-2.5 rounded-lg font-medium transition-colors">
-                                Cerrar
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                <InvoiceDetailsModal
+                    invoice={selectedInvoice}
+                    onClose={() => { setIsInvoiceDetailsModalOpen(false); setSelectedInvoice(null); }}
+                />
             )}
         </div>
     );

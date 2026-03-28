@@ -38,6 +38,7 @@ model Client {
 
 model Service {
   id           Int           @id @default(autoincrement())
+  code         String?       @unique
   name         String
   cost         Float
   observations String?

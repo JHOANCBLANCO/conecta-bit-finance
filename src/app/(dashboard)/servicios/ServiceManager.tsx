@@ -32,9 +32,10 @@ export default function ServiceManager({ initialServices, role }: { initialServi
                     <form onSubmit={(e) => {
                         e.preventDefault();
                         const form = e.target as any;
-                        handleAction(() => addService({ name: form.serviceName.value, cost: Number(form.cost.value), observations: form.observations.value }));
+                        handleAction(() => addService({ name: form.serviceName.value, cost: Number(form.cost.value), observations: form.observations.value, code: form.serviceCode.value || undefined }));
                         form.reset();
                     }} className="flex flex-col md:flex-row gap-4">
+                        <input type="text" name="serviceCode" placeholder="Código (Opcional)" className="w-full md:w-40 rounded-lg border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border p-2.5 focus:ring-2 focus:ring-blue-500 outline-none uppercase placeholder:normal-case" disabled={isPending} />
                         <input required type="text" name="serviceName" placeholder="Nombre del servicio (Ej. Paquete Minutos)" className="flex-1 rounded-lg border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border p-2.5 focus:ring-2 focus:ring-blue-500 outline-none" disabled={isPending} />
                         <input required type="number" name="cost" placeholder="Valor de Venta ($)" min="0" className="w-full md:w-64 rounded-lg border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border p-2.5 focus:ring-2 focus:ring-blue-500 outline-none" disabled={isPending} />
                         <input type="text" name="observations" placeholder="Observaciones (Opcional)" className="flex-1 rounded-lg border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border p-2.5 focus:ring-2 focus:ring-blue-500 outline-none" disabled={isPending} />
@@ -48,17 +49,19 @@ export default function ServiceManager({ initialServices, role }: { initialServi
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
+                                <th className="p-4 font-semibold text-slate-600 dark:text-slate-400">Código</th>
                                 <th className="p-4 font-semibold text-slate-600 dark:text-slate-400">Servicio</th>
                                 <th className="p-4 font-semibold text-slate-600 dark:text-slate-400">Observaciones</th>
-                                <th className="p-4 font-semibold text-slate-600 dark:text-slate-400">Valor de Venta (Defecto)</th>
+                                <th className="p-4 font-semibold text-slate-600 dark:text-slate-400">Valor de Venta</th>
                                 {role === 'ADMIN' && <th className="p-4 font-semibold text-slate-600 dark:text-slate-400 text-right">Acciones</th>}
                             </tr>
                         </thead>
                         <tbody className={isPending ? 'opacity-50 pointer-events-none' : ''}>
                             {initialServices.length === 0 ? (
-                                <tr><td colSpan={3} className="p-8 text-center text-slate-500 dark:text-slate-400">No hay servicios registrados.</td></tr>
+                                <tr><td colSpan={5} className="p-8 text-center text-slate-500 dark:text-slate-400">No hay servicios registrados.</td></tr>
                             ) : initialServices.map((service: any) => (
                                 <tr key={service.id} className="border-b border-slate-100 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                    <td className="p-4 text-slate-500 dark:text-slate-400 font-mono text-sm">{service.code || '-'}</td>
                                     <td className="p-4 font-medium text-slate-800 dark:text-slate-200">{service.name}</td>
                                     <td className="p-4 text-slate-600 dark:text-slate-400">{service.observations || '-'}</td>
                                     <td className="p-4 text-emerald-600 dark:text-emerald-400 font-medium">{formatCurrency(service.cost)}</td>
@@ -96,10 +99,14 @@ export default function ServiceManager({ initialServices, role }: { initialServi
                             e.preventDefault();
                             const form = e.target as any;
                             handleAction(
-                                () => updateService(selectedService.id, { name: form.serviceName.value, cost: Number(form.cost.value), observations: form.observations.value }),
+                                () => updateService(selectedService.id, { name: form.serviceName.value, cost: Number(form.cost.value), observations: form.observations.value, code: form.serviceCode.value || undefined }),
                                 () => { setIsEditModalOpen(false); setSelectedService(null); }
                             );
                         }} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Código del Servicio</label>
+                                <input type="text" name="serviceCode" defaultValue={selectedService.code || ''} placeholder="Ej. SRV-001" className="w-full rounded-lg border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border p-2.5 focus:ring-2 focus:ring-blue-500 outline-none uppercase" disabled={isPending} />
+                            </div>
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Nombre del Servicio</label>
                                 <input required type="text" name="serviceName" defaultValue={selectedService.name} className="w-full rounded-lg border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border p-2.5 focus:ring-2 focus:ring-blue-500 outline-none" disabled={isPending} />

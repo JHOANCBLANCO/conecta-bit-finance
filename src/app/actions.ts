@@ -178,8 +178,12 @@ export async function getServices() {
     return prisma.service.findMany({ orderBy: { id: "desc" } });
 }
 
-export async function addService(data: { name: string; cost: number; observations?: string }) {
+export async function addService(data: { name: string; cost: number; observations?: string; code?: string }) {
     await requireAuth();
+    if (data.code) {
+        const existing = await prisma.service.findUnique({ where: { code: data.code } });
+        if (existing) throw new Error(`El código de servicio "${data.code}" ya está en uso.`);
+    }
     const service = await prisma.service.create({ data });
     revalidatePath("/");
     return service;
@@ -191,8 +195,12 @@ export async function deleteService(id: number) {
     revalidatePath("/");
 }
 
-export async function updateService(id: number, data: { name: string; cost: number; observations?: string }) {
+export async function updateService(id: number, data: { name: string; cost: number; observations?: string; code?: string }) {
     await requireAdmin();
+    if (data.code) {
+        const existing = await prisma.service.findUnique({ where: { code: data.code } });
+        if (existing && existing.id !== id) throw new Error(`El código de servicio "${data.code}" ya está siendo usado por otro servicio.`);
+    }
     const service = await prisma.service.update({ where: { id }, data });
     revalidatePath("/");
     return service;
@@ -489,13 +497,25 @@ export async function addSale(data: {
     const serviceIds = data.items.map(i => i.serviceId);
     const serviceRecords = await prisma.service.findMany({ where: { id: { in: serviceIds } } });
     
-    const serviceMap = new Map(serviceRecords.map(s => [s.id, s.name]));
-    const serviceNames = data.items.map(i => serviceMap.get(i.serviceId)).join(', ');
+    const serviceMap = new Map(serviceRecords.map(s => [s.id, s]));
+    const serviceNames = data.items.map(i => serviceMap.get(i.serviceId)?.name).join(', ');
     const serviceNameString = data.items.length === 1 ? serviceNames : `Varios: ${serviceNames}`;
     const singleServiceId = data.items.length === 1 ? data.items[0].serviceId : null;
 
+    // Build structured JSON items for item-by-item display
+    const structuredItems = data.items.map(i => {
+        const svc = serviceMap.get(i.serviceId);
+        return {
+            code: svc?.code || null,
+            name: svc?.name || 'Desconocido',
+            price: i.price,
+            details: i.details?.trim() || null,
+            observations: i.observations?.trim() || null
+        };
+    });
+
     let detailedNotes = data.items.map(i => {
-        let note = `${serviceMap.get(i.serviceId)} (${i.price})`;
+        let note = `${serviceMap.get(i.serviceId)?.name} (${i.price})`;
         if (i.details && i.details.trim() !== '') {
             note += ` - Detalles: ${i.details.trim()}`;
         }
@@ -511,6 +531,10 @@ export async function addSale(data: {
     if (data.notes) {
         detailedNotes = `${data.notes} | ${detailedNotes}`;
     }
+
+    // Prepend structured JSON for item-by-item parsing
+    const jsonPrefix = `<!--ITEMS:${JSON.stringify(structuredItems)}:ITEMS-->`;
+    detailedNotes = `${jsonPrefix}${detailedNotes}`;
 
     const sale = await prisma.sale.create({
         data: {

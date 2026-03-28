@@ -3,6 +3,7 @@
 import React, { useState, useTransition, useEffect } from 'react';
 import { Plus, Edit2, Trash2, Mail, Phone, Briefcase, FileText, CheckCircle2, ChevronDown, ListChecks, X, Power, Search, History, Copy, Download, Pencil, Activity, Trash, Upload, FileUp, Eye, StickyNote } from 'lucide-react';
 import { addClient, deleteClient, updateClient, getClientSales, addSale, getClientPackage, upsertPackage, getAllPackagesSummary, togglePackageItemStatus, deleteSale, updateSale, uploadInvoiceFile, deleteInvoiceFile } from '@/app/actions';
+import InvoiceDetailsModal, { parseInvoiceItems } from '@/components/InvoiceDetailsModal';
 
 export default function ClientManager({ initialClients, services, role }: { initialClients: any[], services: any[], role: string }) {
     const [isPending, startTransition] = useTransition();
@@ -126,40 +127,42 @@ export default function ClientManager({ initialClients, services, role }: { init
         }
 
         const headers = [
-            "Empresa", "Cód. Cliente", "# Factura", "Servicio", "Detalle Servicios", "Fecha de Factura",
-            "Valor de la Factura", "Pago Fecha", "Total Que Deben Pagar",
-            "Lo Que Han Pagado", "Pendiente", "Retiene (Col)"
+            "C\u00f3digo", "Descripci\u00f3n", "Cantidad", "Valor Unitario", "%IVA", "%INC", "Descuento"
         ];
 
         const csvRows = [headers.join(";")];
 
         filteredHistory.forEach((sale: any) => {
-            const debt = sale.salePrice - sale.amountPaid;
+            const items = parseInvoiceItems(sale.notes);
+            const ivaPercent = sale.hasIva ? '19%' : '0%';
 
-            let lastPaymentDateStr = '-';
-            if (sale.payments && sale.payments.length > 0) {
-                const sortedPayments = [...sale.payments].sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
-                lastPaymentDateStr = new Date(sortedPayments[0].date).toLocaleDateString();
+            if (items && items.length > 0) {
+                // Item-by-item rows
+                items.forEach((item: any) => {
+                    const row = [
+                        `"${item.code || '-'}"`,
+                        `"${item.name}${item.observations ? ' - ' + item.observations : ''}"`,
+                        `"1"`,
+                        `"${item.price}"`,
+                        `"${ivaPercent}"`,
+                        `""`,
+                        `""`
+                    ];
+                    csvRows.push(row.join(";"));
+                });
+            } else {
+                // Legacy single-row format
+                const row = [
+                    `"-"`,
+                    `"${sale.service?.name || sale.serviceName}"`,
+                    `"1"`,
+                    `"${sale.salePrice}"`,
+                    `"${ivaPercent}"`,
+                    `""`,
+                    `""`
+                ];
+                csvRows.push(row.join(";"));
             }
-
-            const detallesSeguros = sale.notes ? sale.notes.replace(/"/g, '""').replace(/\n/g, ' ') : '-';
-
-            const row = [
-                `"${selectedClient.name}"`,
-                `"${selectedClient.code || '-'}"`,
-                `"${sale.invoiceNumber ? sale.invoiceNumber.toUpperCase() : '-'}"`,
-                `"${sale.service?.name || sale.serviceName}"`,
-                `"${detallesSeguros}"`,
-                `"${new Date(sale.date).toLocaleDateString()}"`,
-                `"${formatCurrency(sale.salePrice)}"`,
-                `"${lastPaymentDateStr}"`,
-                `"${formatCurrency(sale.salePrice)}"`,
-                `"${formatCurrency(sale.amountPaid)}"`,
-                `"${formatCurrency(debt)}"`,
-                `"RETIENE"`
-            ];
-
-            csvRows.push(row.join(";"));
         });
 
         const csvContent = "\uFEFF" + csvRows.join("\n");
@@ -825,6 +828,7 @@ export default function ClientManager({ initialClients, services, role }: { init
                                                         <tr><td colSpan={7} className="p-10 text-center text-slate-500">No hay registros de facturación.</td></tr>
                                                     ) : filteredHistory.map((sale: any, index: number) => {
                                                         const debt = sale.salePrice - sale.amountPaid;
+                                                        const items = parseInvoiceItems(sale.notes);
                                                         
                                                         // Estado visual simple (Pagado, Parcial, Pendiente)
                                                         let statusDot = "bg-rose-500";
@@ -839,9 +843,29 @@ export default function ClientManager({ initialClients, services, role }: { init
                                                                         {sale.invoiceNumber ? sale.invoiceNumber.toUpperCase() : <span className="text-slate-400 italic">S/N</span>}
                                                                     </div>
                                                                 </td>
-                                                                <td className="p-3 text-slate-600 max-w-[200px]" title={sale.service?.name || sale.serviceName}>
-                                                                    <div className="truncate font-medium">{sale.service?.name || sale.serviceName}</div>
-                                                                    {sale.notes && <div className="text-[10px] text-slate-400 mt-0.5 truncate" title={sale.notes}>{sale.notes}</div>}
+                                                                <td className="p-3 text-slate-600" style={{whiteSpace: 'normal', maxWidth: '280px'}}>
+                                                                    {items && items.length > 0 ? (
+                                                                        <div className="space-y-1.5">
+                                                                            {items.map((item: any, idx: number) => (
+                                                                                <div key={idx} className="flex items-start gap-1.5 text-xs">
+                                                                                    <span className="shrink-0 w-4 h-4 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-[10px] font-bold mt-0.5">{idx + 1}</span>
+                                                                                    <div className="min-w-0">
+                                                                                        <div className="flex items-center gap-1 flex-wrap">
+                                                                                            {item.code && <span className="text-[9px] font-bold uppercase bg-indigo-50 text-indigo-600 px-1 py-0.5 rounded">{item.code}</span>}
+                                                                                            <span className="font-medium text-slate-700">{item.name}</span>
+                                                                                            <span className="text-slate-400 text-[10px]">({formatCurrency(item.price)})</span>
+                                                                                        </div>
+                                                                                        {item.details && <p className="text-[10px] text-slate-500 truncate">Detalle: {item.details}</p>}
+                                                                                        {item.observations && <p className="text-[10px] text-amber-600 italic truncate">Obs: {item.observations}</p>}
+                                                                                    </div>
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
+                                                                    ) : (
+                                                                        <>
+                                                                            <div className="truncate font-medium">{sale.service?.name || sale.serviceName}</div>
+                                                                        </>
+                                                                    )}
                                                                 </td>
                                                                 <td className="p-3 text-slate-600">
                                                                     {new Date(sale.date).toLocaleDateString()}
@@ -857,6 +881,10 @@ export default function ClientManager({ initialClients, services, role }: { init
                                                                 </td>
                                                                 <td className="p-3 text-right">
                                                                     <div className="flex items-center justify-end gap-2">
+                                                                        {/* Eye button — Invoice Details (shared modal) */}
+                                                                        <button onClick={() => { setSelectedInvoice(sale); setIsInvoiceDetailsModalOpen(true); }} className="p-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-lg transition-colors border border-indigo-100" title="Ver Detalles">
+                                                                            <Eye size={16} />
+                                                                        </button>
                                                                         {sale.invoiceFileUrl ? (
                                                                             <div className="flex bg-emerald-50 rounded-lg overflow-hidden border border-emerald-100">
                                                                                 <a href={sale.invoiceFileUrl} target="_blank" rel="noreferrer" className="p-2 text-emerald-600 hover:bg-emerald-100 transition-colors" title="Ver PDF">
@@ -1050,7 +1078,7 @@ export default function ClientManager({ initialClients, services, role }: { init
                                                 disabled={isPending}
                                             >
                                                 <option value="">Seleccionar...</option>
-                                                {services.map((s: any) => <option key={s.id} value={s.id}>{s.name} (Ref: {formatCurrency(s.cost)})</option>)}
+                                                {services.map((s: any) => <option key={s.id} value={s.id}>{s.code ? `[${s.code}] ` : ''}{s.name}</option>)}
                                             </select>
                                         </div>
                                         <div className="w-full md:w-32 lg:w-40 shrink-0">
@@ -1315,6 +1343,13 @@ export default function ClientManager({ initialClients, services, role }: { init
                         </div>
                     </div>
                 </div>
+            )}
+
+            {isInvoiceDetailsModalOpen && selectedInvoice && (
+                <InvoiceDetailsModal
+                    invoice={selectedInvoice}
+                    onClose={() => { setIsInvoiceDetailsModalOpen(false); setSelectedInvoice(null); }}
+                />
             )}
 
             <form action={(formData) => {
