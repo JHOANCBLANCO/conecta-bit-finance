@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState, useTransition } from 'react';
-import { Plus, CreditCard, AlertCircle, CheckCircle2, TrendingUp, X, Trash2, List, FileText, UploadCloud, FileDown, Calendar, History, Eye } from 'lucide-react';
-import { addSale, addPayment, deleteSale, deletePayment, uploadInvoiceFile, deleteInvoiceFile, addPaymentMethod } from '@/app/actions';
+import { Plus, CreditCard, AlertCircle, CheckCircle2, TrendingUp, X, Trash2, List, FileText, UploadCloud, FileDown, Calendar, History, Eye, PackagePlus } from 'lucide-react';
+import { addSale, addPayment, deleteSale, deletePayment, uploadInvoiceFile, deleteInvoiceFile, addPaymentMethod, uploadBulkZips } from '@/app/actions';
 import InvoiceDetailsModal, { parseInvoiceItems } from '@/components/InvoiceDetailsModal';
 
 export default function SalesManager({ initialSales, clients, services, paymentMethods: initialPaymentMethods, role, initialFilter }: { initialSales: any[], clients: any[], services: any[], paymentMethods: any[], role: string, initialFilter?: string }) {
@@ -21,6 +21,10 @@ export default function SalesManager({ initialSales, clients, services, paymentM
     // View Invoice Details State
     const [isInvoiceDetailsModalOpen, setIsInvoiceDetailsModalOpen] = useState(false);
     const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
+
+    // Bulk Upload State
+    const [isBulkUploadModalOpen, setIsBulkUploadModalOpen] = useState(false);
+    const [bulkUploadResult, setBulkUploadResult] = useState<{ processed: number, errors: string[] } | null>(null);
 
     const [activeTab, setActiveTab] = useState<'MONTH' | 'HISTORY'>(initialFilter ? 'HISTORY' : 'MONTH');
     const [activeFilter, setActiveFilter] = useState(initialFilter || '');
@@ -107,6 +111,14 @@ export default function SalesManager({ initialSales, clients, services, paymentM
                         </div>
                     )}
                 </div>
+                {role === 'ADMIN' && (
+                    <button
+                        onClick={() => setIsBulkUploadModalOpen(true)}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center transition-all shadow-sm"
+                    >
+                        <PackagePlus size={18} className="mr-2" /> PDF Masivo (.zip)
+                    </button>
+                )}
             </div>
 
             {activeTab === 'HISTORY' && (
@@ -570,6 +582,94 @@ export default function SalesManager({ initialSales, clients, services, paymentM
                     invoice={selectedInvoice}
                     onClose={() => { setIsInvoiceDetailsModalOpen(false); setSelectedInvoice(null); }}
                 />
+            )}
+
+            {isBulkUploadModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-lg border border-slate-200 dark:border-slate-800 flex flex-col max-h-[90vh]">
+                        <div className="flex items-center justify-between p-4 border-b border-slate-100 dark:border-slate-800 shrink-0">
+                            <div>
+                                <h3 className="font-bold text-slate-800 dark:text-slate-200 text-lg flex items-center"><PackagePlus className="w-5 h-5 mr-2 text-indigo-500" /> Carga Masiva (.zip)</h3>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Sube múltiples archivos ZIP. El sistema buscará el .pdf en el interior y lo asociará al número FVE.</p>
+                            </div>
+                            <button onClick={() => { setIsBulkUploadModalOpen(false); setBulkUploadResult(null); }} className="text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 p-2 rounded-lg transition-colors"><X size={20} /></button>
+                        </div>
+                        
+                        <div className="p-6 overflow-y-auto">
+                            {!bulkUploadResult ? (
+                                <form onSubmit={(e) => {
+                                    e.preventDefault();
+                                    const form = e.target as HTMLFormElement;
+                                    const formData = new FormData(form);
+                                    
+                                    const fileInput = form.elements.namedItem('files') as HTMLInputElement;
+                                    if (!fileInput.files || fileInput.files.length === 0) {
+                                        alert("Por favor selecciona al menos un archivo .zip");
+                                        return;
+                                    }
+
+                                    handleAction(async () => {
+                                        const result = await uploadBulkZips(formData);
+                                        setBulkUploadResult(result);
+                                    });
+                                }} className="flex flex-col gap-4">
+                                    <div className="border-2 border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 rounded-xl p-8 text-center transition-colors hover:bg-indigo-50/50 dark:hover:bg-indigo-900/10 hover:border-indigo-300 dark:hover:border-indigo-700">
+                                        <PackagePlus className="w-12 h-12 text-indigo-400 mx-auto mb-3 opacity-80" />
+                                        <p className="text-sm text-slate-600 dark:text-slate-400 font-medium mb-4">Selecciona múltiples archivos comprimidos en ZIP.</p>
+                                        <input 
+                                            type="file" 
+                                            name="files" 
+                                            multiple 
+                                            accept=".zip,application/zip" 
+                                            className="block w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-indigo-100 file:text-indigo-700 hover:file:bg-indigo-200 file:cursor-pointer file:transition-colors file:shadow-sm" 
+                                            disabled={isPending}
+                                            required
+                                        />
+                                    </div>
+                                    <div className="bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-400 p-3 rounded-lg text-xs leading-relaxed border border-amber-200/50 dark:border-amber-800/50">
+                                        <strong className="block mb-1">Reglas de emparejamiento:</strong>
+                                        El sistema extrae el número del nombre del archivo (Ej: <span className="font-mono bg-white dark:bg-slate-900 px-1 rounded mx-1 text-[10px]">ad090...FVE631.zip</span> asocia a <span className="font-bold">FVE631</span>). Si el registro no se encuentra, falta el PDF, o la venta ya tenía un comprobante adjunto, se saltará y se alertará en el reporte.
+                                    </div>
+                                    <button 
+                                        type="submit" 
+                                        className="mt-2 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl transition-all shadow-md active:scale-[0.98] disabled:opacity-50 flex justify-center items-center"
+                                        disabled={isPending}
+                                    >
+                                        {isPending ? 'Procesando Archivos...' : 'Subir y Extraer'}
+                                    </button>
+                                </form>
+                            ) : (
+                                <div className="space-y-4 animate-in fade-in zoom-in-95 duration-300">
+                                    <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 p-4 rounded-xl text-center">
+                                        <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto mb-2" />
+                                        <h4 className="text-emerald-800 dark:text-emerald-400 font-bold text-lg">Proceso Completo</h4>
+                                        <p className="text-emerald-600 dark:text-emerald-500 text-sm mt-1">Facturas procesadas e integradas correctamente: <span className="font-black text-lg ml-1">{bulkUploadResult.processed}</span></p>
+                                    </div>
+                                    
+                                    {bulkUploadResult.errors.length > 0 && (
+                                        <div className="mt-4">
+                                            <h5 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 flex items-center">
+                                                <AlertCircle size={16} className="text-rose-500 mr-1.5" /> 
+                                                Reporte de Excepciones ({bulkUploadResult.errors.length})
+                                            </h5>
+                                            <div className="bg-rose-50 dark:bg-rose-900/10 border border-rose-100 dark:border-rose-900/50 rounded-xl p-3 text-xs text-rose-800 dark:text-rose-300 max-h-48 overflow-y-auto space-y-1.5 font-mono">
+                                                {bulkUploadResult.errors.map((err, i) => (
+                                                    <div key={i} className="pb-1.5 border-b border-rose-200/50 dark:border-rose-800/50 last:border-0 last:pb-0">{err}</div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                    <button 
+                                        onClick={() => { setIsBulkUploadModalOpen(false); setBulkUploadResult(null); }}
+                                        className="w-full bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 text-white font-bold py-2.5 px-4 rounded-xl mt-4 transition-all"
+                                    >
+                                        Cerrar Reporte
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );

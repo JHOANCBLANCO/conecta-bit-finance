@@ -7,6 +7,7 @@ import bcrypt from "bcryptjs";
 import { getSession } from "@/lib/session";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
+import JSZip from "jszip";
 
 const adapter = new PrismaLibSql({ url: "file:./dev.db" });
 const prisma = new PrismaClient({ adapter });
@@ -1138,4 +1139,88 @@ export async function deleteOtherExpenseReceipt(expenseId: number, currentFileUr
     });
     revalidatePath("/");
     return expense;
+}
+
+export async function uploadBulkZips(formData: FormData) {
+    await requireAdmin();
+    const files = formData.getAll('files') as File[];
+    
+    let processed = 0;
+    let errors: string[] = [];
+
+    const fsP = require('fs/promises');
+    const path = require('path');
+
+    for (const file of files) {
+        if (!file.name.toLowerCase().endsWith('.zip')) {
+            errors.push(`${file.name}: No es un archivo .zip`);
+            continue;
+        }
+
+        const match = file.name.match(/FVE-?\d+/i);
+        if (!match) {
+            errors.push(`${file.name}: No contiene FVE###`);
+            continue;
+        }
+
+        let rawInvoiceNumber = match[0].toUpperCase();
+        let cleanedInvoiceNumber = rawInvoiceNumber.replace(/-/g, ''); 
+        let dashedInvoiceNumber = cleanedInvoiceNumber.replace('FVE', 'FVE-');
+
+        const sales = await prisma.sale.findMany({
+            where: {
+                OR: [
+                    { invoiceNumber: rawInvoiceNumber },
+                    { invoiceNumber: cleanedInvoiceNumber },
+                    { invoiceNumber: dashedInvoiceNumber }
+                ]
+            }
+        });
+
+        if (sales.length === 0) {
+            errors.push(`${file.name}: Factura ${cleanedInvoiceNumber} no existe BD.`);
+            continue;
+        }
+
+        const sale = sales[0];
+
+        if (sale.invoiceFileUrl) {
+            errors.push(`${file.name}: Factura ${cleanedInvoiceNumber} ya tiene archivo adjunto.`);
+            continue;
+        }
+
+        try {
+            const buffer = Buffer.from(await file.arrayBuffer());
+            const zip = await JSZip.loadAsync(buffer);
+            
+            const pdfFile = Object.values(zip.files).find(f => !f.dir && f.name.toLowerCase().endsWith('.pdf'));
+            
+            if (!pdfFile) {
+                errors.push(`${file.name}: No se encontró .pdf en el interior.`);
+                continue;
+            }
+
+            const pdfBuffer = await pdfFile.async("nodebuffer");
+
+            const uploadDir = path.join(process.cwd(), 'public', 'uploads');
+            await fsP.mkdir(uploadDir, { recursive: true });
+
+            const newFilename = `${sale.id}_${Date.now()}_masivo.pdf`;
+            const filepath = path.join(uploadDir, newFilename);
+
+            await fsP.writeFile(filepath, pdfBuffer);
+
+            await prisma.sale.update({
+                where: { id: sale.id },
+                data: { invoiceFileUrl: `/uploads/${newFilename}` }
+            });
+
+            processed++;
+        } catch (e: any) {
+            errors.push(`${file.name}: Error zipeado (${e.message}).`);
+        }
+    }
+
+    revalidatePath("/");
+    return { processed, errors };
 }
