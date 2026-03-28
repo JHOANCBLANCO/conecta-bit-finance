@@ -180,11 +180,20 @@ export async function getServices() {
 
 export async function addService(data: { name: string; cost: number; observations?: string; code?: string }) {
     await requireAuth();
-    if (data.code) {
-        const existing = await prisma.service.findUnique({ where: { code: data.code } });
-        if (existing) throw new Error(`El código de servicio "${data.code}" ya está en uso.`);
+    const cleanName = data.name.trim().toUpperCase();
+    const cleanCode = data.code ? data.code.trim().toUpperCase() : undefined;
+
+    if (cleanCode) {
+        const existingCode = await prisma.service.findUnique({ where: { code: cleanCode } });
+        if (existingCode) throw new Error(`El código de servicio "${cleanCode}" ya está en uso.`);
     }
-    const service = await prisma.service.create({ data });
+
+    // Validate unique name (case-insensitive, trimmed)
+    const allServices = await prisma.service.findMany();
+    const duplicateName = allServices.find(s => s.name.trim().toUpperCase() === cleanName);
+    if (duplicateName) throw new Error(`Ya existe un servicio con el nombre "${cleanName}".`);
+
+    const service = await prisma.service.create({ data: { ...data, name: cleanName, code: cleanCode || null } });
     revalidatePath("/");
     return service;
 }
@@ -197,11 +206,20 @@ export async function deleteService(id: number) {
 
 export async function updateService(id: number, data: { name: string; cost: number; observations?: string; code?: string }) {
     await requireAdmin();
-    if (data.code) {
-        const existing = await prisma.service.findUnique({ where: { code: data.code } });
-        if (existing && existing.id !== id) throw new Error(`El código de servicio "${data.code}" ya está siendo usado por otro servicio.`);
+    const cleanName = data.name.trim().toUpperCase();
+    const cleanCode = data.code ? data.code.trim().toUpperCase() : undefined;
+
+    if (cleanCode) {
+        const existingCode = await prisma.service.findUnique({ where: { code: cleanCode } });
+        if (existingCode && existingCode.id !== id) throw new Error(`El código de servicio "${cleanCode}" ya está siendo usado por otro servicio.`);
     }
-    const service = await prisma.service.update({ where: { id }, data });
+
+    // Validate unique name (case-insensitive, trimmed)
+    const allServices = await prisma.service.findMany();
+    const duplicateName = allServices.find(s => s.name.trim().toUpperCase() === cleanName && s.id !== id);
+    if (duplicateName) throw new Error(`Ya existe un servicio con el nombre "${cleanName}".`);
+
+    const service = await prisma.service.update({ where: { id }, data: { ...data, name: cleanName, code: cleanCode || null } });
     revalidatePath("/");
     return service;
 }
@@ -359,11 +377,18 @@ export async function processMonthlyPackages() {
         const totalAmount = activeItems.reduce((acc, item) => acc + item.customPrice, 0);
         
         // Construir detalle
-        const details = activeItems.map(i => {
-             const baseStr = `${i.service.name} (${i.customPrice})`;
-             return i.details ? `${baseStr} - ${i.details}` : baseStr;
-        }).join(", ");
-        const notes = `Cobro Automático Paquete. Incluye: ${details}`;
+        // Build structured JSON items for item-by-item display
+        const structuredItems = activeItems.map(i => ({
+            code: i.service.code || null,
+            name: i.service.name || 'Desconocido',
+            price: i.customPrice,
+            quantity: i.quantity || 1,
+            details: i.details?.trim() || null,
+            observations: null
+        }));
+        
+        const jsonPrefix = `<!--ITEMS:${JSON.stringify(structuredItems)}:ITEMS-->`;
+        const notes = `${jsonPrefix}Cobro Automático Paquete.`;
 
         // Calcular payment deadline específico de esta factura
         const deadline = new Date(today);
@@ -456,7 +481,7 @@ export async function getSales() {
 
 export async function addSale(data: {
     clientId: number;
-    items: { serviceId: number; price: number; details?: string; observations?: string }[];
+    items: { serviceId: number; price: number; quantity?: number; details?: string; observations?: string }[];
     amountPaid: number;
     notes?: string;
     invoiceNumber?: string;
@@ -477,7 +502,7 @@ export async function addSale(data: {
     }
 
     let totalIva = 0;
-    let totalReteIva = 0; // Se sigue llamando así por compatibilidad interna de las variables, aunque ahora es ReteICA
+    let totalReteIva = 0;
 
     const shouldApplyIva = data.applyIva !== undefined ? data.applyIva : clientRecord?.hasIva;
     const shouldApplyReteIva = data.applyReteIva !== undefined ? data.applyReteIva : clientRecord?.hasReteIva;
@@ -509,32 +534,17 @@ export async function addSale(data: {
             code: svc?.code || null,
             name: svc?.name || 'Desconocido',
             price: i.price,
+            quantity: i.quantity || 1,
             details: i.details?.trim() || null,
             observations: i.observations?.trim() || null
         };
     });
 
-    let detailedNotes = data.items.map(i => {
-        let note = `${serviceMap.get(i.serviceId)?.name} (${i.price})`;
-        if (i.details && i.details.trim() !== '') {
-            note += ` - Detalles: ${i.details.trim()}`;
-        }
-        if (i.observations && i.observations.trim() !== '') {
-            note += ` - Obs: ${i.observations.trim()}`;
-        }
-        return note;
-    }).join(' | ');
-
-    if (shouldApplyIva) detailedNotes += ' [IVA]';
-    if (shouldApplyIva && shouldApplyReteIva) detailedNotes += ' [ReteIVA]';
-
-    if (data.notes) {
-        detailedNotes = `${data.notes} | ${detailedNotes}`;
-    }
+    let finalNotes = data.notes ? data.notes.trim() : "";
 
     // Prepend structured JSON for item-by-item parsing
     const jsonPrefix = `<!--ITEMS:${JSON.stringify(structuredItems)}:ITEMS-->`;
-    detailedNotes = `${jsonPrefix}${detailedNotes}`;
+    finalNotes = finalNotes ? `${jsonPrefix}${finalNotes}` : jsonPrefix;
 
     const sale = await prisma.sale.create({
         data: {
@@ -544,7 +554,7 @@ export async function addSale(data: {
             serviceName: serviceNameString, // Snapshot permanente
             salePrice: finalSalePrice,
             amountPaid: data.amountPaid,
-            notes: detailedNotes,
+            notes: finalNotes,
             status: status,
             date: data.date || undefined,
             paymentDeadline: data.paymentDeadline,
@@ -608,6 +618,17 @@ export async function updateSale(id: number, data: { salePrice?: number; notes?:
     const status = sale.amountPaid >= priceToEvaluate ? "PAID" : sale.amountPaid > 0 ? "PARTIAL" : "PENDING";
 
     const updateData: any = { ...data, status };
+    
+    if (data.notes !== undefined && sale.notes) {
+        // preserve the JSON prefix from the original sale if it exists
+        const match = sale.notes.match(/^(<!--ITEMS:.*?:ITEMS-->)/);
+        if (match) {
+            updateData.notes = data.notes.trim() ? `${match[1]}${data.notes.trim()}` : match[1];
+        } else {
+            updateData.notes = data.notes.trim();
+        }
+    }
+
     if (data.date === undefined) delete updateData.date;
     if (data.paymentDeadline === undefined) delete updateData.paymentDeadline;
 

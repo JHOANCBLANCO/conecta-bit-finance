@@ -179,19 +179,26 @@ export default function SalesManager({ initialSales, clients, services, paymentM
                                                 const items = parseInvoiceItems(sale.notes);
                                                 if (items && items.length > 0) {
                                                     return (
-                                                        <div className="space-y-1.5 max-w-[280px]">
-                                                            {items.map((item: any, idx: number) => (
-                                                                <div key={idx} className="flex items-start gap-1.5 text-xs">
-                                                                    <span className="shrink-0 w-4 h-4 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 flex items-center justify-center text-[10px] font-bold mt-0.5">{idx + 1}</span>
-                                                                    <div className="min-w-0">
-                                                                        <div className="flex items-center gap-1 flex-wrap">
-                                                                            {item.code && <span className="text-[9px] font-bold uppercase bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-1 py-0.5 rounded">{item.code}</span>}
-                                                                            <span className="font-medium text-slate-700 dark:text-slate-300 truncate">{item.name}</span>
-                                                                        </div>
-                                                                        {item.observations && <p className="text-[10px] text-amber-600 dark:text-amber-400 italic truncate">{item.observations}</p>}
+                                                        <div className="space-y-1 max-w-[250px]">
+                                                            {items.slice(0, 2).map((item: any, idx: number) => (
+                                                                <div key={idx} className="flex items-center gap-1.5 text-xs">
+                                                                    <span className="shrink-0 w-4 h-4 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 flex items-center justify-center text-[10px] font-bold">{idx + 1}</span>
+                                                                    <div className="flex items-center gap-1 min-w-0 truncate">
+                                                                        {item.code && <span className="text-[9px] font-bold uppercase bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-1 py-0.5 rounded shrink-0">{item.code}</span>}
+                                                                        <span className="font-medium text-slate-700 dark:text-slate-300 truncate">
+                                                                            {item.quantity && item.quantity > 1 ? `${item.quantity}x ` : ''}{item.name}
+                                                                        </span>
                                                                     </div>
                                                                 </div>
                                                             ))}
+                                                            {items.length > 2 && (
+                                                                <button
+                                                                    onClick={() => { setSelectedInvoice(sale); setIsInvoiceDetailsModalOpen(true); }}
+                                                                    className="text-[10px] text-indigo-600 dark:text-indigo-400 font-semibold hover:text-indigo-800 dark:hover:text-indigo-300 transition-colors cursor-pointer"
+                                                                >
+                                                                    + {items.length - 2} más...
+                                                                </button>
+                                                            )}
                                                         </div>
                                                     );
                                                 }

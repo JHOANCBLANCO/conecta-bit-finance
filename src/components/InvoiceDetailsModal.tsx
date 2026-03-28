@@ -38,7 +38,7 @@ export default function InvoiceDetailsModal({ invoice, onClose }: InvoiceDetails
 
     return (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[80]">
-            <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 w-full max-w-2xl shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 w-full max-w-2xl shadow-2xl animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto flex flex-col">
                 <div className="flex justify-between items-start mb-6 border-b border-slate-100 dark:border-slate-800 pb-4">
                     <div>
                         <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100">Detalles de Factura</h3>
@@ -92,7 +92,10 @@ export default function InvoiceDetailsModal({ invoice, onClose }: InvoiceDetails
                                                     {item.code && (
                                                         <span className="text-[10px] font-bold uppercase tracking-wider bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 px-1.5 py-0.5 rounded border border-indigo-200 dark:border-indigo-800">{item.code}</span>
                                                     )}
-                                                    <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">{item.name}</span>
+                                                    <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                                                        {item.quantity && item.quantity > 1 ? <span className="text-indigo-600 dark:text-indigo-400 mr-1">{item.quantity}x</span> : ''}
+                                                        {item.name}
+                                                    </span>
                                                 </div>
                                                 {item.details && <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Detalle: {item.details}</p>}
                                                 {item.observations && <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5 italic">Obs: {item.observations}</p>}

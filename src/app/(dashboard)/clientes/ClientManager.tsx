@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState, useTransition, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Mail, Phone, Briefcase, FileText, CheckCircle2, ChevronDown, ListChecks, X, Power, Search, History, Copy, Download, Pencil, Activity, Trash, Upload, FileUp, Eye, StickyNote } from 'lucide-react';
+import { Plus, Edit2, Trash2, Mail, Phone, Briefcase, FileText, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ListChecks, X, Power, Search, History, Copy, Download, Pencil, Activity, Trash, Upload, FileUp, Eye, StickyNote } from 'lucide-react';
 import { addClient, deleteClient, updateClient, getClientSales, addSale, getClientPackage, upsertPackage, getAllPackagesSummary, togglePackageItemStatus, deleteSale, updateSale, uploadInvoiceFile, deleteInvoiceFile } from '@/app/actions';
-import InvoiceDetailsModal, { parseInvoiceItems } from '@/components/InvoiceDetailsModal';
+import InvoiceDetailsModal, { parseInvoiceItems, getCleanNotes } from '@/components/InvoiceDetailsModal';
 
 export default function ClientManager({ initialClients, services, role }: { initialClients: any[], services: any[], role: string }) {
     const [isPending, startTransition] = useTransition();
@@ -33,7 +33,7 @@ export default function ClientManager({ initialClients, services, role }: { init
     // Manual Sale State
     // Manual Sale State
     const [isCreateSaleModalOpen, setIsCreateSaleModalOpen] = useState(false);
-    const [saleItems, setSaleItems] = useState<{serviceId: string, price: number, details?: string, observations?: string}[]>([{serviceId: '', price: 0, details: '', observations: ''}]);
+    const [saleItems, setSaleItems] = useState<{serviceId: string, price: number, quantity?: number, details?: string, observations?: string}[]>([{serviceId: '', price: 0, quantity: 1, details: '', observations: ''}]);
     const [applyIva, setApplyIva] = useState(false);
     const [applyReteIva, setApplyReteIva] = useState(false);
     const [notesValue, setNotesValue] = useState("");
@@ -107,6 +107,13 @@ export default function ClientManager({ initialClients, services, role }: { init
         (client.code || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
 
+    // Client list pagination
+    const CLIENTS_PER_PAGE = 10;
+    const [clientPage, setClientPage] = useState(1);
+    const clientTotalPages = Math.max(1, Math.ceil(filteredClients.length / CLIENTS_PER_PAGE));
+    const safeClientPage = Math.min(clientPage, clientTotalPages);
+    const paginatedClients = filteredClients.slice((safeClientPage - 1) * CLIENTS_PER_PAGE, safeClientPage * CLIENTS_PER_PAGE);
+
     const filteredHistory = clientHistory.filter(sale => {
         if (!historyStartDate && !historyEndDate) return true;
         const saleDate = new Date(sale.date);
@@ -139,11 +146,13 @@ export default function ClientManager({ initialClients, services, role }: { init
             if (items && items.length > 0) {
                 // Item-by-item rows
                 items.forEach((item: any) => {
+                    const qty = item.quantity || 1;
+                    const unitPrice = item.price / qty;
                     const row = [
                         `"${item.code || '-'}"`,
                         `"${item.name}${item.observations ? ' - ' + item.observations : ''}"`,
-                        `"1"`,
-                        `"${item.price}"`,
+                        `"${qty}"`,
+                        `"${unitPrice}"`,
                         `"${ivaPercent}"`,
                         `""`,
                         `""`
@@ -217,9 +226,9 @@ export default function ClientManager({ initialClients, services, role }: { init
                             </tr>
                         </thead>
                         <tbody className={isPending ? 'opacity-50 pointer-events-none' : ''}>
-                            {filteredClients.length === 0 ? (
+                            {paginatedClients.length === 0 ? (
                                 <tr><td colSpan={7} className="p-8 text-center text-slate-500 dark:text-slate-400">No se encontraron clientes.</td></tr>
-                            ) : filteredClients.map((client: any) => (
+                            ) : paginatedClients.map((client: any) => (
                                 <tr key={client.id} className="border-b border-slate-100 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                                     <td className="p-4 text-slate-500 dark:text-slate-400 font-mono text-sm">{client.code || '-'}</td>
                                     <td className="p-4 font-medium text-slate-800 dark:text-slate-200">{client.name}</td>
@@ -272,6 +281,21 @@ export default function ClientManager({ initialClients, services, role }: { init
                         </tbody>
                     </table>
                 </div>
+
+                {/* Client List Pagination */}
+                {clientTotalPages > 1 && (
+                    <div className="flex items-center justify-between px-6 py-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
+                        <p className="text-sm text-slate-500">Página {safeClientPage} de {clientTotalPages} ({filteredClients.length} clientes)</p>
+                        <div className="flex items-center gap-2">
+                            <button onClick={() => setClientPage(p => Math.max(1, p - 1))} disabled={safeClientPage <= 1} className="p-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                                <ChevronLeft size={18} />
+                            </button>
+                            <button onClick={() => setClientPage(p => Math.min(clientTotalPages, p + 1))} disabled={safeClientPage >= clientTotalPages} className="p-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                                <ChevronRight size={18} />
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* MODAL REGISTRO CLIENTE */}
@@ -843,28 +867,29 @@ export default function ClientManager({ initialClients, services, role }: { init
                                                                         {sale.invoiceNumber ? sale.invoiceNumber.toUpperCase() : <span className="text-slate-400 italic">S/N</span>}
                                                                     </div>
                                                                 </td>
-                                                                <td className="p-3 text-slate-600" style={{whiteSpace: 'normal', maxWidth: '280px'}}>
+                                                                <td className="p-3 text-slate-600" style={{whiteSpace: 'normal', maxWidth: '250px'}}>
                                                                     {items && items.length > 0 ? (
-                                                                        <div className="space-y-1.5">
-                                                                            {items.map((item: any, idx: number) => (
-                                                                                <div key={idx} className="flex items-start gap-1.5 text-xs">
-                                                                                    <span className="shrink-0 w-4 h-4 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-[10px] font-bold mt-0.5">{idx + 1}</span>
-                                                                                    <div className="min-w-0">
-                                                                                        <div className="flex items-center gap-1 flex-wrap">
-                                                                                            {item.code && <span className="text-[9px] font-bold uppercase bg-indigo-50 text-indigo-600 px-1 py-0.5 rounded">{item.code}</span>}
-                                                                                            <span className="font-medium text-slate-700">{item.name}</span>
-                                                                                            <span className="text-slate-400 text-[10px]">({formatCurrency(item.price)})</span>
-                                                                                        </div>
-                                                                                        {item.details && <p className="text-[10px] text-slate-500 truncate">Detalle: {item.details}</p>}
-                                                                                        {item.observations && <p className="text-[10px] text-amber-600 italic truncate">Obs: {item.observations}</p>}
+                                                                        <div className="space-y-1">
+                                                                            {items.slice(0, 2).map((item: any, idx: number) => (
+                                                                                <div key={idx} className="flex items-center gap-1.5 text-xs">
+                                                                                    <span className="shrink-0 w-4 h-4 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-[10px] font-bold">{idx + 1}</span>
+                                                                                    <div className="flex items-center gap-1 min-w-0 truncate">
+                                                                                        {item.code && <span className="text-[9px] font-bold uppercase bg-indigo-50 text-indigo-600 px-1 py-0.5 rounded shrink-0">{item.code}</span>}
+                                                                                        <span className="font-medium text-slate-700 truncate">{item.quantity && item.quantity > 1 ? `${item.quantity}x ` : ''}{item.name}</span>
                                                                                     </div>
                                                                                 </div>
                                                                             ))}
+                                                                            {items.length > 2 && (
+                                                                                <button
+                                                                                    onClick={() => { setSelectedInvoice(sale); setIsInvoiceDetailsModalOpen(true); }}
+                                                                                    className="text-[10px] text-indigo-600 font-semibold hover:text-indigo-800 transition-colors cursor-pointer"
+                                                                                >
+                                                                                    + {items.length - 2} más...
+                                                                                </button>
+                                                                            )}
                                                                         </div>
                                                                     ) : (
-                                                                        <>
-                                                                            <div className="truncate font-medium">{sale.service?.name || sale.serviceName}</div>
-                                                                        </>
+                                                                        <div className="truncate font-medium">{sale.service?.name || sale.serviceName}</div>
                                                                     )}
                                                                 </td>
                                                                 <td className="p-3 text-slate-600">
@@ -1012,7 +1037,7 @@ export default function ClientManager({ initialClients, services, role }: { init
                             const form = e.target as any;
                             
                             // Filter valid numeric items
-                            const validItems = saleItems.filter(i => i.serviceId !== '' && i.price >= 0).map(i => ({ serviceId: Number(i.serviceId), price: Number(i.price), details: i.details || undefined, observations: i.observations || undefined }));
+                            const validItems = saleItems.filter(i => i.serviceId !== '' && i.price >= 0).map(i => ({ serviceId: Number(i.serviceId), price: Number(i.price), quantity: Number(i.quantity) || 1, details: i.details || undefined, observations: i.observations || undefined }));
                             if (validItems.length === 0) {
                                 alert("Por favor selecciona al menos un servicio.");
                                 return;
@@ -1080,6 +1105,25 @@ export default function ClientManager({ initialClients, services, role }: { init
                                                 <option value="">Seleccionar...</option>
                                                 {services.map((s: any) => <option key={s.id} value={s.id}>{s.code ? `[${s.code}] ` : ''}{s.name}</option>)}
                                             </select>
+                                        </div>
+                                        <div className="w-full md:w-24 shrink-0">
+                                            <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Cantidad</label>
+                                            <input 
+                                                required 
+                                                type="number" 
+                                                value={item.quantity || 1}
+                                                min="1" 
+                                                className="w-full rounded-lg border-slate-300 dark:border-slate-700 border p-2.5 focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 text-center" 
+                                                disabled={isPending} 
+                                                onChange={(e) => {
+                                                    const newItems = [...saleItems];
+                                                    const val = Number(e.target.value) || 1;
+                                                    const serviceDef = services.find((s: any) => s.id.toString() === item.serviceId);
+                                                    newItems[index] = { ...newItems[index], quantity: val };
+                                                    if(serviceDef) newItems[index].price = serviceDef.cost * val;
+                                                    setSaleItems(newItems);
+                                                }} 
+                                            />
                                         </div>
                                         <div className="w-full md:w-32 lg:w-40 shrink-0">
                                             <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Precio (Sin IVA)</label>
@@ -1311,7 +1355,7 @@ export default function ClientManager({ initialClients, services, role }: { init
                                 </div>
                                 <div className="col-span-2">
                                     <label className="block text-sm font-medium text-slate-700 mb-1">Concepto / Notas</label>
-                                    <input type="text" name="notes" defaultValue={selectedSaleForEdit.notes} className="w-full rounded-lg border-slate-300 border p-2 focus:ring-2 focus:ring-blue-500 outline-none" disabled={isPending} />
+                                    <input type="text" name="notes" defaultValue={getCleanNotes(selectedSaleForEdit.notes)} className="w-full rounded-lg border-slate-300 border p-2 focus:ring-2 focus:ring-blue-500 outline-none" disabled={isPending} />
                                 </div>
                             </div>
                             <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
