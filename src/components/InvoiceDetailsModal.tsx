@@ -4,7 +4,16 @@ import React from 'react';
 import { X, CheckCircle2 } from 'lucide-react';
 
 // Utility to parse structured items from notes JSON prefix
-export function parseInvoiceItems(notes: string | null | undefined): { code: string | null; name: string; price: number; details: string | null; observations: string | null }[] | null {
+export interface InvoiceItem {
+    code: string | null;
+    name: string;
+    price: number;
+    quantity?: number | null;
+    details: string | null;
+    observations: string | null;
+}
+
+export function parseInvoiceItems(notes: string | null | undefined): InvoiceItem[] | null {
     if (!notes) return null;
     const match = notes.match(/^<!--ITEMS:(.*?):ITEMS-->/);
     if (!match) return null;
