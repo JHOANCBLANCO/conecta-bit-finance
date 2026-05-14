@@ -18,6 +18,8 @@ export default function ClientManager({ initialClients, services, role }: { init
     const [clientHistory, setClientHistory] = useState<any[]>([]);
 
     const [searchTerm, setSearchTerm] = useState('');
+    const [serviceSearchTerm, setServiceSearchTerm] = useState('');
+    const [isServiceDropdownOpen, setIsServiceDropdownOpen] = useState(false);
     const [historyStartDate, setHistoryStartDate] = useState('');
     const [historyEndDate, setHistoryEndDate] = useState('');
     const [useSameEmail, setUseSameEmail] = useState(true);
@@ -34,7 +36,7 @@ export default function ClientManager({ initialClients, services, role }: { init
     // Manual Sale State
     const [isCreateSaleModalOpen, setIsCreateSaleModalOpen] = useState(false);
     const [saleItems, setSaleItems] = useState<{serviceId: string, price: number, quantity?: number, details?: string, observations?: string}[]>([{serviceId: '', price: 0, quantity: 1, details: '', observations: ''}]);
-    const [applyIva, setApplyIva] = useState(false);
+    const [applyIva, setApplyIva] = useState(true);
     const [applyReteIva, setApplyReteIva] = useState(false);
     const [notesValue, setNotesValue] = useState("");
     
@@ -76,7 +78,8 @@ export default function ClientManager({ initialClients, services, role }: { init
                     service: i.service,
                     customPrice: i.customPrice,
                     isActive: i.isActive,
-                    details: i.details || ''
+                    details: i.details || '',
+                    quantity: i.quantity || 1
                 })));
             } else {
                 setAssignServicesList([]);
@@ -389,6 +392,17 @@ export default function ClientManager({ initialClients, services, role }: { init
                                 </div>
                             )}
 
+                            <div className="flex items-center mt-4 mb-2">
+                                <input
+                                    type="checkbox"
+                                    name="hasIva"
+                                    id="hasIvaAdd"
+                                    defaultChecked={true}
+                                    className="mr-2 rounded text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                                />
+                                <label htmlFor="hasIvaAdd" className="text-sm text-slate-600 cursor-pointer font-bold">Cobrar IVA (19%) de forma predeterminada a este cliente</label>
+                            </div>
+
                             
                             <div className="flex justify-end gap-3 mt-6">
                                 <button type="button" onClick={() => { setIsAddClientModalOpen(false); }} className="px-5 py-2.5 text-slate-600 hover:bg-slate-100 rounded-xl font-medium transition-colors" disabled={isPending}>
@@ -494,6 +508,17 @@ export default function ClientManager({ initialClients, services, role }: { init
                                     <input type="email" name="billingEmail" defaultValue={selectedClient.billingEmail} className="w-full rounded-lg border-slate-300 border p-2.5 focus:ring-2 focus:ring-blue-500 outline-none transition-all" disabled={isPending} />
                                 </div>
                             )}
+
+                            <div className="flex items-center mt-4 mb-2">
+                                <input
+                                    type="checkbox"
+                                    name="hasIva"
+                                    id="hasIvaEdit"
+                                    defaultChecked={selectedClient.hasIva}
+                                    className="mr-2 rounded text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                                />
+                                <label htmlFor="hasIvaEdit" className="text-sm text-slate-600 cursor-pointer font-bold">Cobrar IVA (19%) de forma predeterminada a este cliente</label>
+                            </div>
 
                             <div className="flex justify-end gap-3 mt-6">
                                 <button type="button" onClick={() => { setIsEditClientModalOpen(false); setSelectedClient(null); }} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium transition-colors" disabled={isPending}>
@@ -635,23 +660,46 @@ export default function ClientManager({ initialClients, services, role }: { init
                                             {/* Selector de Servicios */}
                                             <div>
                                                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Añadir Servicio al Paquete</label>
-                                                <select 
-                                                    className="w-full rounded-lg border-slate-300 dark:border-slate-700 border p-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100" 
-                                                    disabled={isPending}
-                                                    onChange={(e) => {
-                                                        const s = services.find((serv) => serv.id === Number(e.target.value));
-                                                        if (s) {
-                                                            setAssignServicesList(prev => [...prev, { service: s, customPrice: s.cost, isActive: true, details: '', quantity: 1 }]);
-                                                        }
-                                                        e.target.value = "";
-                                                    }}
-                                                    defaultValue=""
-                                                >
-                                                    <option value="" disabled>Selecciona servicio...</option>
-                                                    {services.map((s) => (
-                                                        <option key={s.id} value={s.id}>{s.name} ({formatCurrency(s.cost)})</option>
-                                                    ))}
-                                                </select>
+                                                <div className="relative">
+                                                    <div className="relative">
+                                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                                                        <input 
+                                                            type="text"
+                                                            placeholder="Buscar servicio para añadir..."
+                                                            value={serviceSearchTerm}
+                                                            onChange={(e) => {
+                                                                setServiceSearchTerm(e.target.value);
+                                                                setIsServiceDropdownOpen(true);
+                                                            }}
+                                                            onFocus={() => setIsServiceDropdownOpen(true)}
+                                                            onBlur={() => setTimeout(() => setIsServiceDropdownOpen(false), 200)}
+                                                            className="w-full pl-9 pr-4 py-2 rounded-lg border-slate-300 dark:border-slate-700 border text-sm outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 placeholder:text-slate-400"
+                                                            disabled={isPending}
+                                                        />
+                                                    </div>
+                                                    {isServiceDropdownOpen && (
+                                                        <div className="absolute z-10 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                                                            {services.filter(s => s.name.toLowerCase().includes(serviceSearchTerm.toLowerCase())).length === 0 ? (
+                                                                <div className="p-3 text-sm text-slate-500 text-center">No se encontraron servicios.</div>
+                                                            ) : (
+                                                                services.filter(s => s.name.toLowerCase().includes(serviceSearchTerm.toLowerCase())).map(s => (
+                                                                    <div 
+                                                                        key={s.id}
+                                                                        onClick={() => {
+                                                                            setAssignServicesList(prev => [...prev, { service: s, customPrice: s.cost, isActive: true, details: '', quantity: 1 }]);
+                                                                            setServiceSearchTerm('');
+                                                                            setIsServiceDropdownOpen(false);
+                                                                        }}
+                                                                        className="p-3 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer border-b border-slate-100 dark:border-slate-700/50 last:border-0 transition-colors"
+                                                                    >
+                                                                        <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">{s.name}</div>
+                                                                        <div className="text-xs text-slate-500 dark:text-slate-400">{formatCurrency(s.cost)}</div>
+                                                                    </div>
+                                                                ))
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
 
                                             {/* Lista de Servicios en el Paquete */}
@@ -691,14 +739,18 @@ export default function ClientManager({ initialClients, services, role }: { init
                                                                         type="number" 
                                                                         required 
                                                                         min="1"
-                                                                        value={item.quantity || 1}
+                                                                        value={item.quantity === undefined ? 1 : item.quantity}
                                                                         onChange={(e) => {
-                                                                            const val = e.target.value ? Number(e.target.value) : 1;
+                                                                            const val = e.target.value;
                                                                             setAssignServicesList(prev => {
                                                                                 const copy = [...prev];
-                                                                                copy[idx].quantity = val;
-                                                                                // Update the cost automatically based on base cost*quantity, unless user edits it later
-                                                                                copy[idx].customPrice = copy[idx].service.cost * val;
+                                                                                if (val === '') {
+                                                                                    copy[idx].quantity = '' as any;
+                                                                                } else {
+                                                                                    const num = Number(val);
+                                                                                    copy[idx].quantity = num;
+                                                                                    copy[idx].customPrice = copy[idx].service.cost * num;
+                                                                                }
                                                                                 return copy;
                                                                             });
                                                                         }}
@@ -803,11 +855,11 @@ export default function ClientManager({ initialClients, services, role }: { init
                                             <button onClick={() => { 
                                                 const activeServices = assignServicesList.filter(i => i.isActive);
                                                 if(activeServices.length > 0) {
-                                                    setSaleItems(activeServices.map(i => ({ serviceId: i.service.id.toString(), price: Number(i.customPrice) || 0, details: i.details || '', observations: '' })));
+                                                    setSaleItems(activeServices.map(i => ({ serviceId: i.service.id.toString(), price: Number(i.customPrice) || 0, quantity: i.quantity || 1, details: i.details || '', observations: '' })));
                                                 } else {
-                                                    setSaleItems([{serviceId: '', price: 0, details: '', observations: ''}]);
+                                                    setSaleItems([{serviceId: '', price: 0, quantity: 1, details: '', observations: ''}]);
                                                 }
-                                                setApplyIva(Boolean(selectedClient?.hasIva));
+                                                setApplyIva(true);
                                                 setApplyReteIva(Boolean(selectedClient?.hasReteIva));
                                                 setIsCreateSaleModalOpen(true); 
                                             }} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center transition-colors shadow-sm h-fit">
@@ -957,7 +1009,7 @@ export default function ClientManager({ initialClients, services, role }: { init
                                         <button onClick={() => { 
                                             const activeServices = assignServicesList.filter(i => i.isActive);
                                             if(activeServices.length > 0) {
-                                                setSaleItems(activeServices.map(i => ({ serviceId: i.service.id.toString(), price: Number(i.customPrice) || 0, details: i.details || '', observations: '' })));
+                                                setSaleItems(activeServices.map(i => ({ serviceId: i.service.id.toString(), price: Number(i.customPrice) || 0, quantity: i.quantity || 1, details: i.details || '', observations: '' })));
                                                 
                                                 // GENERATE SMART NOTES (Auto-Gen)
                                                 let generatedNotes = `Facturación de Suscripción - ${new Date().toLocaleDateString('es-CO')}\n\n`;
@@ -972,10 +1024,10 @@ export default function ClientManager({ initialClients, services, role }: { init
                                                 
                                                 setNotesValue(generatedNotes);
                                             } else {
-                                                setSaleItems([{serviceId: '', price: 0, details: '', observations: ''}]);
+                                                setSaleItems([{serviceId: '', price: 0, quantity: 1, details: '', observations: ''}]);
                                                 setNotesValue('');
                                             }
-                                            setApplyIva(Boolean(selectedClient?.hasIva));
+                                            setApplyIva(true);
                                             setApplyReteIva(Boolean(selectedClient?.hasReteIva));
                                             setIsCreateSaleModalOpen(true); 
                                         }} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-medium flex items-center transition-colors shadow-md">
@@ -1111,16 +1163,21 @@ export default function ClientManager({ initialClients, services, role }: { init
                                             <input 
                                                 required 
                                                 type="number" 
-                                                value={item.quantity || 1}
+                                                value={item.quantity === undefined ? 1 : item.quantity}
                                                 min="1" 
                                                 className="w-full rounded-lg border-slate-300 dark:border-slate-700 border p-2.5 focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 text-center" 
                                                 disabled={isPending} 
                                                 onChange={(e) => {
                                                     const newItems = [...saleItems];
-                                                    const val = Number(e.target.value) || 1;
+                                                    const val = e.target.value;
                                                     const serviceDef = services.find((s: any) => s.id.toString() === item.serviceId);
-                                                    newItems[index] = { ...newItems[index], quantity: val };
-                                                    if(serviceDef) newItems[index].price = serviceDef.cost * val;
+                                                    if (val === '') {
+                                                        newItems[index] = { ...newItems[index], quantity: '' as any };
+                                                    } else {
+                                                        const num = Number(val);
+                                                        newItems[index] = { ...newItems[index], quantity: num };
+                                                        if(serviceDef) newItems[index].price = serviceDef.cost * num;
+                                                    }
                                                     setSaleItems(newItems);
                                                 }} 
                                             />

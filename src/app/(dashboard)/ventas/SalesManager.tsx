@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useTransition } from 'react';
-import { Plus, CreditCard, AlertCircle, CheckCircle2, TrendingUp, X, Trash2, List, FileText, UploadCloud, FileDown, Calendar, History, Eye, PackagePlus } from 'lucide-react';
+import { Plus, CreditCard, AlertCircle, CheckCircle2, TrendingUp, X, Trash2, List, FileText, UploadCloud, FileDown, Calendar, History, Eye, PackagePlus, Search } from 'lucide-react';
 import { addSale, addPayment, deleteSale, deletePayment, uploadInvoiceFile, deleteInvoiceFile, addPaymentMethod, uploadBulkZips } from '@/app/actions';
 import InvoiceDetailsModal, { parseInvoiceItems } from '@/components/InvoiceDetailsModal';
 
@@ -28,6 +28,7 @@ export default function SalesManager({ initialSales, clients, services, paymentM
 
     const [activeTab, setActiveTab] = useState<'MONTH' | 'HISTORY'>(initialFilter ? 'HISTORY' : 'MONTH');
     const [activeFilter, setActiveFilter] = useState(initialFilter || '');
+    const [searchClientName, setSearchClientName] = useState('');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
 
@@ -75,11 +76,17 @@ export default function SalesManager({ initialSales, clients, services, paymentM
             }
         }
         
-        if (!passDateFilter && !activeFilter) return false; // Bypass dates if allowed by filter ONLY if dates match, wait... NO, if filter matched, date MUST pass unless it's history without dates. So if !passDateFilter, return false directly!
         if (!passDateFilter) return false;
+        
+        if (searchClientName) {
+            const clientName = sale.client?.name || sale.clientName || '';
+            if (!clientName.toLowerCase().includes(searchClientName.toLowerCase())) return false;
+        }
         
         if (activeFilter === 'paid' && sale.amountPaid < sale.salePrice) return false;
         if (activeFilter === 'debt' && sale.amountPaid >= sale.salePrice) return false;
+        if (activeFilter === 'pending' && sale.amountPaid > 0) return false;
+        if (activeFilter === 'partial' && (sale.amountPaid === 0 || sale.amountPaid >= sale.salePrice)) return false;
 
         return true; 
     });
@@ -92,24 +99,44 @@ export default function SalesManager({ initialSales, clients, services, paymentM
     return (
         <div className="space-y-6 animate-in fade-in duration-300">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mt-2 gap-4">
-                <div className="inline-flex bg-slate-100 p-1 rounded-xl shadow-inner border border-slate-200">
-                    <button
-                        onClick={() => handleTabChange('MONTH')}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center transition-all ${activeTab === 'MONTH' ? 'bg-white text-blue-700 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
+                <div className="flex flex-wrap items-center gap-2">
+                    <div className="inline-flex bg-slate-100 p-1 rounded-xl shadow-inner border border-slate-200">
+                        <button
+                            onClick={() => handleTabChange('MONTH')}
+                            className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center transition-all ${activeTab === 'MONTH' ? 'bg-white text-blue-700 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
+                        >
+                            <Calendar className="w-4 h-4 mr-2" /> Mes Actual
+                        </button>
+                        <button
+                            onClick={() => handleTabChange('HISTORY')}
+                            className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center transition-all ${activeTab === 'HISTORY' ? 'bg-white text-indigo-700 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
+                        >
+                            <History className="w-4 h-4 mr-2" /> Histórico
+                        </button>
+                    </div>
+
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                        <input
+                            type="text"
+                            placeholder="Buscar cliente..."
+                            value={searchClientName}
+                            onChange={(e) => setSearchClientName(e.target.value)}
+                            className="pl-9 pr-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-sm outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-slate-800"
+                        />
+                    </div>
+
+                    <select
+                        value={activeFilter}
+                        onChange={(e) => setActiveFilter(e.target.value)}
+                        className="py-2 pl-3 pr-8 rounded-lg border border-slate-300 dark:border-slate-700 text-sm outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200"
                     >
-                        <Calendar className="w-4 h-4 mr-2" /> Mes Actual
-                    </button>
-                    <button
-                        onClick={() => handleTabChange('HISTORY')}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center transition-all ${activeTab === 'HISTORY' ? 'bg-white text-indigo-700 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
-                    >
-                        <History className="w-4 h-4 mr-2" /> Histórico
-                    </button>
-                    {activeFilter && (
-                        <div className="ml-2 flex items-center px-3 py-1 bg-amber-100 text-amber-700 rounded-lg text-xs font-bold shrink-0">
-                            {activeFilter === 'paid' ? 'Filtrando: Cobrados' : 'Filtrando: Por Cobrar'}
-                        </div>
-                    )}
+                        <option value="">Todos los Estados</option>
+                        <option value="pending">Pendiente (Sin abonos)</option>
+                        <option value="partial">Abono Parcial</option>
+                        <option value="paid">Pagado Completo</option>
+                        <option value="debt">Con Deuda (General)</option>
+                    </select>
                 </div>
                 {role === 'ADMIN' && (
                     <button

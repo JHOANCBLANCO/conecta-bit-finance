@@ -11,7 +11,8 @@ import {
     Menu,
     Sun,
     Moon,
-    Receipt
+    Receipt,
+    AlertCircle
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -116,6 +117,10 @@ export default function Sidebar({ isOpen, setOpen, role, onLogout }: { isOpen: b
                     </Link>
 
                     <div className={sectionTitleClass}>Financiero</div>
+                    <Link href="/cuentas-pendientes" className={getNavClass('/cuentas-pendientes')} onClick={() => { if (window.innerWidth < 1024) setOpen(false) }} title="Cuentas Pendientes">
+                        <div className="shrink-0 flex items-center justify-center"><AlertCircle size={24} strokeWidth={isActive('/cuentas-pendientes') ? 2.5 : 2} className={isActive('/cuentas-pendientes') ? activeIconColor : iconColor} /></div>
+                        <span className={`ml-3.5 whitespace-nowrap transition-opacity duration-300 ease-in-out ${isOpen ? 'opacity-100' : 'lg:opacity-0'}`}>Cuentas Pendientes</span>
+                    </Link>
                     <Link href="/ventas" className={getNavClass('/ventas')} onClick={() => { if (window.innerWidth < 1024) setOpen(false) }} title="Cartera de Cobros">
                         <div className="shrink-0 flex items-center justify-center"><BadgeDollarSign size={24} strokeWidth={isActive('/ventas') ? 2.5 : 2} className={isActive('/ventas') ? activeIconColor : iconColor} /></div>
                         <span className={`ml-3.5 whitespace-nowrap transition-opacity duration-300 ease-in-out ${isOpen ? 'opacity-100' : 'lg:opacity-0'}`}>Cartera de Cobros</span>

@@ -79,72 +79,37 @@ export default function DashboardPage() {
         <div className="space-y-6 animate-in fade-in duration-300">
             <ExpiringAlertModal expiringPackages={expiringAlerts} />
             
-            {(dueSales.length > 0 || upcomingPackages.length > 0) && (
-                <div className="bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500 p-4 rounded-r-xl shadow-sm mb-6 animate-in slide-in-from-top-4 flex flex-col md:flex-row gap-6">
-                    
-                    {dueSales.length > 0 && (
-                        <div className="flex-1">
-                            <div className="flex items-start">
-                                <AlertCircle className="h-5 w-5 text-amber-500 mt-0.5 flex-shrink-0" />
-                                <div className="ml-3 w-full">
-                                    <h3 className="text-sm font-bold text-amber-800 dark:text-amber-400">Cuentas de Cobro Pendientes ({dueSales.length})</h3>
-                                    <div className="mt-2 text-sm text-amber-700 dark:text-amber-300">
-                                        <ul className="space-y-2">
-                                            {dueSales.map((sale: any) => {
-                                                const debt = sale.salePrice - sale.amountPaid;
-                                                const dateLabel = sale.paymentDeadline ? new Date(sale.paymentDeadline).toLocaleDateString() : 'Sin Fecha';
-                                                return (
-                                                    <li key={sale.id} className="flex flex-col sm:flex-row sm:items-center justify-between bg-white/50 dark:bg-slate-900/50 px-3 py-2 rounded-lg border border-amber-200/50 dark:border-amber-700/50 gap-2">
-                                                        <div className="font-medium text-slate-800 dark:text-slate-200">
-                                                            {sale.client?.name || sale.clientName}
-                                                            <span className="text-slate-500 dark:text-slate-400 text-xs ml-2 font-normal">({sale.service?.name || sale.serviceName})</span>
-                                                        </div>
-                                                        <div className="flex gap-3 items-center">
-                                                            <span className="font-bold text-amber-700 dark:text-amber-400">Deuda: {formatCurrency(debt)}</span>
-                                                            <span className="text-[10px] bg-amber-200 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300 px-2 py-1 rounded shadow-sm font-bold uppercase whitespace-nowrap">
-                                                                Vence: {dateLabel}
-                                                            </span>
-                                                        </div>
-                                                    </li>
-                                                );
-                                            })}
-                                        </ul>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
+            {upcomingPackages.length > 0 && (
+                <div className="bg-amber-50 dark:bg-amber-900/20 border-l-4 border-indigo-500 p-4 rounded-r-xl shadow-sm mb-6 animate-in slide-in-from-top-4 flex flex-col md:flex-row gap-6">
 
-                    {upcomingPackages.length > 0 && (
-                        <div className="flex-1">
-                            <div className="flex items-start">
-                                <Calendar className="h-5 w-5 text-indigo-500 mt-0.5 flex-shrink-0" />
-                                <div className="ml-3 w-full">
-                                    <h3 className="text-sm font-bold text-indigo-800 dark:text-indigo-400">Próximos Paquetes a Generar ({upcomingPackages.length})</h3>
-                                    <div className="mt-2 text-sm text-indigo-700 dark:text-indigo-300">
-                                        <ul className="space-y-2">
-                                            {upcomingPackages.map((pkg: any) => {
-                                                const dateLabel = new Date(pkg.nextBillingDate).toLocaleDateString();
-                                                return (
-                                                    <li key={pkg.id} className="flex flex-col sm:flex-row sm:items-center justify-between bg-indigo-50/50 dark:bg-slate-900/50 px-3 py-2 rounded-lg border border-indigo-200/50 dark:border-indigo-700/50 gap-2">
-                                                        <div className="font-medium text-slate-800 dark:text-slate-200">
-                                                            {pkg.client?.name}
-                                                            <span className="text-indigo-500 dark:text-indigo-400 text-xs ml-2 font-bold">(Paquete Mensual)</span>
-                                                        </div>
-                                                        <div className="flex gap-3 items-center">
-                                                            <span className="text-[10px] bg-indigo-200 dark:bg-indigo-500/20 text-indigo-800 dark:text-indigo-300 px-2 py-1 rounded shadow-sm font-bold uppercase whitespace-nowrap">
-                                                                Corte: {dateLabel}
-                                                            </span>
-                                                        </div>
-                                                    </li>
-                                                );
-                                            })}
-                                        </ul>
-                                    </div>
+                    <div className="flex-1">
+                        <div className="flex items-start">
+                            <Calendar className="h-5 w-5 text-indigo-500 mt-0.5 flex-shrink-0" />
+                            <div className="ml-3 w-full">
+                                <h3 className="text-sm font-bold text-indigo-800 dark:text-indigo-400">Próximos Paquetes a Generar ({upcomingPackages.length})</h3>
+                                <div className="mt-2 text-sm text-indigo-700 dark:text-indigo-300">
+                                    <ul className="space-y-2">
+                                        {upcomingPackages.map((pkg: any) => {
+                                            const dateLabel = new Date(pkg.nextBillingDate).toLocaleDateString();
+                                            return (
+                                                <li key={pkg.id} className="flex flex-col sm:flex-row sm:items-center justify-between bg-indigo-50/50 dark:bg-slate-900/50 px-3 py-2 rounded-lg border border-indigo-200/50 dark:border-indigo-700/50 gap-2">
+                                                    <div className="font-medium text-slate-800 dark:text-slate-200">
+                                                        {pkg.client?.name}
+                                                        <span className="text-indigo-500 dark:text-indigo-400 text-xs ml-2 font-bold">(Paquete Mensual)</span>
+                                                    </div>
+                                                    <div className="flex gap-3 items-center">
+                                                        <span className="text-[10px] bg-indigo-200 dark:bg-indigo-500/20 text-indigo-800 dark:text-indigo-300 px-2 py-1 rounded shadow-sm font-bold uppercase whitespace-nowrap">
+                                                            Corte: {dateLabel}
+                                                        </span>
+                                                    </div>
+                                                </li>
+                                            );
+                                        })}
+                                    </ul>
                                 </div>
                             </div>
                         </div>
-                    )}
+                    </div>
 
                 </div>
             )}

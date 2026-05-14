@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Asegurar que el script se ejecute en la carpeta donde está ubicado
+cd "$(dirname "$0")"
+
 # Colores para la terminal
 G='\033[0;32m'
 R='\033[0;31m'
