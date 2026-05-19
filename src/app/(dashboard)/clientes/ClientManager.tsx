@@ -27,15 +27,18 @@ export default function ClientManager({ initialClients, services, role }: { init
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
     // Assign Service State inside details
-    const [assignServicesList, setAssignServicesList] = useState<{service: any, customPrice: number | '', isActive: boolean, details?: string, quantity?: number}[]>([]);
+    const [assignServicesList, setAssignServicesList] = useState<{service: any, customPrice: number | '', unitPrice: number, isActive: boolean, details?: string, quantity?: number}[]>([]);
+    // Pending price confirmation for paquete items: { idx, pendingValue }
+    const [pkgPendingPrice, setPkgPendingPrice] = useState<{idx: number, pendingValue: number} | null>(null);
 
     const [packagesSummary, setPackagesSummary] = useState<any[]>([]);
     const [isSummaryModalOpen, setIsSummaryModalOpen] = useState(false);
 
     // Manual Sale State
-    // Manual Sale State
     const [isCreateSaleModalOpen, setIsCreateSaleModalOpen] = useState(false);
-    const [saleItems, setSaleItems] = useState<{serviceId: string, price: number, quantity?: number, details?: string, observations?: string}[]>([{serviceId: '', price: 0, quantity: 1, details: '', observations: ''}]);
+    const [saleItems, setSaleItems] = useState<{serviceId: string, price: number, unitPrice: number, quantity?: number, details?: string, observations?: string}[]>([{serviceId: '', price: 0, unitPrice: 0, quantity: 1, details: '', observations: ''}]);
+    // Pending price confirmation for factura items: { idx, pendingValue }
+    const [salePendingPrice, setSalePendingPrice] = useState<{idx: number, pendingValue: number} | null>(null);
     const [applyIva, setApplyIva] = useState(true);
     const [applyReteIva, setApplyReteIva] = useState(false);
     const [notesValue, setNotesValue] = useState("");
@@ -74,13 +77,18 @@ export default function ClientManager({ initialClients, services, role }: { init
             setClientHistory(history);
             setClientPackage(pkg);
             if (pkg) {
-                setAssignServicesList(pkg.items.map((i: any) => ({
-                    service: i.service,
-                    customPrice: i.customPrice,
-                    isActive: i.isActive,
-                    details: i.details || '',
-                    quantity: i.quantity || 1
-                })));
+                setAssignServicesList(pkg.items.map((i: any) => {
+                    const qty = i.quantity || 1;
+                    const total = Number(i.customPrice) || 0;
+                    return {
+                        service: i.service,
+                        customPrice: total,
+                        unitPrice: total / qty,
+                        isActive: i.isActive,
+                        details: i.details || '',
+                        quantity: qty
+                    };
+                }));
             } else {
                 setAssignServicesList([]);
             }
@@ -686,7 +694,7 @@ export default function ClientManager({ initialClients, services, role }: { init
                                                                     <div 
                                                                         key={s.id}
                                                                         onClick={() => {
-                                                                            setAssignServicesList(prev => [...prev, { service: s, customPrice: s.cost, isActive: true, details: '', quantity: 1 }]);
+                                                                            setAssignServicesList(prev => [...prev, { service: s, customPrice: s.cost, unitPrice: s.cost, isActive: true, details: '', quantity: 1 }]);
                                                                             setServiceSearchTerm('');
                                                                             setIsServiceDropdownOpen(false);
                                                                         }}
@@ -747,9 +755,9 @@ export default function ClientManager({ initialClients, services, role }: { init
                                                                                 if (val === '') {
                                                                                     copy[idx].quantity = '' as any;
                                                                                 } else {
-                                                                                    const num = Number(val);
-                                                                                    copy[idx].quantity = num;
-                                                                                    copy[idx].customPrice = copy[idx].service.cost * num;
+                                                                                    const newQty = Number(val);
+                                                                                    copy[idx].quantity = newQty;
+                                                                                    copy[idx].customPrice = copy[idx].unitPrice * newQty;
                                                                                 }
                                                                                 return copy;
                                                                             });
@@ -759,25 +767,44 @@ export default function ClientManager({ initialClients, services, role }: { init
                                                                     />
                                                                 </div>
                                                                 <div className="flex-1">
-                                                                    <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Costo cliente (Total):</label>
+                                                                    <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Precio unitario:</label>
                                                                     <div className="relative">
                                                                         <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 text-sm">$</span>
                                                                         <input 
                                                                             type="number" 
                                                                             required 
-                                                                            value={item.customPrice}
+                                                                            value={pkgPendingPrice?.idx === idx ? pkgPendingPrice.pendingValue : item.unitPrice}
                                                                             onChange={(e) => {
-                                                                                const val = e.target.value ? Number(e.target.value) : '';
-                                                                                setAssignServicesList(prev => {
-                                                                                    const copy = [...prev];
-                                                                                    copy[idx].customPrice = val;
-                                                                                    return copy;
-                                                                                });
+                                                                                const val = Number(e.target.value) || 0;
+                                                                                setPkgPendingPrice({ idx, pendingValue: val });
                                                                             }}
-                                                                            className={`w-full rounded-md border p-1.5 pl-7 focus:ring-2 focus:ring-indigo-500 font-bold text-sm outline-none ${item.isActive ? 'bg-slate-50 dark:bg-slate-900 border-indigo-200 dark:border-indigo-800 text-slate-800 dark:text-slate-100' : 'bg-transparent border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400'}`}
+                                                                            className={`w-full rounded-md border p-1.5 pl-7 focus:ring-2 focus:ring-indigo-500 font-bold text-sm outline-none ${pkgPendingPrice?.idx === idx ? 'border-amber-400 ring-2 ring-amber-200' : ''} ${item.isActive ? 'bg-slate-50 dark:bg-slate-900 border-indigo-200 dark:border-indigo-800 text-slate-800 dark:text-slate-100' : 'bg-transparent border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400'}`}
                                                                             disabled={isPending || !item.isActive}
                                                                         />
                                                                     </div>
+                                                                    {/* Confirmación inline de cambio de precio unitario */}
+                                                                    {pkgPendingPrice?.idx === idx && (
+                                                                        <div className="mt-1.5 p-2 bg-amber-50 border border-amber-300 rounded-lg text-[11px] text-amber-800">
+                                                                            <p className="font-semibold mb-1.5">¿Cambiar precio unitario de <span className="line-through">{formatCurrency(item.unitPrice)}</span> a <span className="font-black text-amber-900">{formatCurrency(pkgPendingPrice.pendingValue)}</span>?</p>
+                                                                            <p className="text-amber-600 mb-1.5">Total nuevo: <strong>{formatCurrency(pkgPendingPrice.pendingValue * (Number(item.quantity) || 1))}</strong></p>
+                                                                            <div className="flex gap-1.5">
+                                                                                <button type="button" onClick={() => {
+                                                                                    const newUnitPrice = pkgPendingPrice.pendingValue;
+                                                                                    setAssignServicesList(prev => {
+                                                                                        const copy = [...prev];
+                                                                                        copy[idx].unitPrice = newUnitPrice;
+                                                                                        copy[idx].customPrice = newUnitPrice * (Number(copy[idx].quantity) || 1);
+                                                                                        return copy;
+                                                                                    });
+                                                                                    setPkgPendingPrice(null);
+                                                                                }} className="flex-1 bg-amber-500 hover:bg-amber-600 text-white rounded px-2 py-1 font-bold transition-colors">Confirmar</button>
+                                                                                <button type="button" onClick={() => setPkgPendingPrice(null)} className="flex-1 bg-white border border-slate-300 text-slate-600 hover:bg-slate-100 rounded px-2 py-1 font-medium transition-colors">Cancelar</button>
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+                                                                    {pkgPendingPrice?.idx !== idx && (
+                                                                        <p className="text-[10px] text-slate-400 mt-0.5">Total: <strong>{formatCurrency(Number(item.customPrice))}</strong></p>
+                                                                    )}
                                                                 </div>
                                                             </div>
 
@@ -855,9 +882,9 @@ export default function ClientManager({ initialClients, services, role }: { init
                                             <button onClick={() => { 
                                                 const activeServices = assignServicesList.filter(i => i.isActive);
                                                 if(activeServices.length > 0) {
-                                                    setSaleItems(activeServices.map(i => ({ serviceId: i.service.id.toString(), price: Number(i.customPrice) || 0, quantity: i.quantity || 1, details: i.details || '', observations: '' })));
+                                                    setSaleItems(activeServices.map(i => ({ serviceId: i.service.id.toString(), unitPrice: i.unitPrice || 0, price: Number(i.customPrice) || 0, quantity: i.quantity || 1, details: i.details || '', observations: '' })));
                                                 } else {
-                                                    setSaleItems([{serviceId: '', price: 0, quantity: 1, details: '', observations: ''}]);
+                                                    setSaleItems([{serviceId: '', price: 0, unitPrice: 0, quantity: 1, details: '', observations: ''}]);
                                                 }
                                                 setApplyIva(true);
                                                 setApplyReteIva(Boolean(selectedClient?.hasReteIva));
@@ -1009,7 +1036,7 @@ export default function ClientManager({ initialClients, services, role }: { init
                                         <button onClick={() => { 
                                             const activeServices = assignServicesList.filter(i => i.isActive);
                                             if(activeServices.length > 0) {
-                                                setSaleItems(activeServices.map(i => ({ serviceId: i.service.id.toString(), price: Number(i.customPrice) || 0, quantity: i.quantity || 1, details: i.details || '', observations: '' })));
+                                                setSaleItems(activeServices.map(i => ({ serviceId: i.service.id.toString(), unitPrice: i.unitPrice || 0, price: Number(i.customPrice) || 0, quantity: i.quantity || 1, details: i.details || '', observations: '' })));
                                                 
                                                 // GENERATE SMART NOTES (Auto-Gen)
                                                 let generatedNotes = `Facturación de Suscripción - ${new Date().toLocaleDateString('es-CO')}\n\n`;
@@ -1024,7 +1051,7 @@ export default function ClientManager({ initialClients, services, role }: { init
                                                 
                                                 setNotesValue(generatedNotes);
                                             } else {
-                                                setSaleItems([{serviceId: '', price: 0, quantity: 1, details: '', observations: ''}]);
+                                                setSaleItems([{serviceId: '', price: 0, unitPrice: 0, quantity: 1, details: '', observations: ''}]);
                                                 setNotesValue('');
                                             }
                                             setApplyIva(true);
@@ -1082,7 +1109,7 @@ export default function ClientManager({ initialClients, services, role }: { init
                                     </div>
                                 </div>
                             </div>
-                            <button type="button" onClick={() => { setIsCreateSaleModalOpen(false); setSaleItems([{serviceId: '', price: 0, details: '', observations: ''}]); }} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 p-1.5 rounded-lg transition-colors shrink-0"><X size={20} /></button>
+                            <button type="button" onClick={() => { setIsCreateSaleModalOpen(false); setSaleItems([{serviceId: '', price: 0, unitPrice: 0, details: '', observations: ''}]); }} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 p-1.5 rounded-lg transition-colors shrink-0"><X size={20} /></button>
                         </div>
                         <form onSubmit={(e) => {
                             e.preventDefault();
@@ -1112,7 +1139,7 @@ export default function ClientManager({ initialClients, services, role }: { init
                                 cycleEndDate: cycleEndDateValue ? new Date(cycleEndDateValue + 'T12:00:00') : undefined
                             }), () => {
                                 setIsCreateSaleModalOpen(false);
-                                setSaleItems([{serviceId: '', price: 0, details: '', observations: ''}]);
+                                setSaleItems([{serviceId: '', price: 0, unitPrice: 0, details: '', observations: ''}]);
                                 loadClientDetails(selectedClient.id); 
                             });
                         }} className="flex flex-col flex-1 overflow-hidden min-h-0">
@@ -1134,123 +1161,178 @@ export default function ClientManager({ initialClients, services, role }: { init
                             </div>
 
                             <div className="lg:col-span-4 mb-2">
-                                <div className="flex items-center mb-3">
+                                <div className="flex items-center justify-between mb-3">
                                     <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Ítems de la Factura</label>
+                                    <span className="text-xs text-slate-400">{saleItems.length} {saleItems.length === 1 ? 'ítem' : 'ítems'}</span>
                                 </div>
+                                <div className="space-y-3">
                                 {saleItems.map((item, index) => (
-                                    <div key={index} className="flex flex-col md:flex-row gap-3 mb-3 items-end">
-                                        <div className="flex-1">
-                                            <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Servicio Vendido</label>
-                                            <select 
-                                                required 
-                                                value={item.serviceId}
-                                                onChange={(e) => {
-                                                    const newServiceId = e.target.value;
-                                                    const serviceDef = services.find((s: any) => s.id.toString() === newServiceId);
-                                                    const newItems = [...saleItems];
-                                                    newItems[index] = { ...newItems[index], serviceId: newServiceId, price: serviceDef ? serviceDef.cost : 0 };
-                                                    setSaleItems(newItems);
-                                                }}
-                                                className="w-full rounded-lg border-slate-300 dark:border-slate-700 border p-2.5 focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100" 
-                                                disabled={isPending}
-                                            >
-                                                <option value="">Seleccionar...</option>
-                                                {services.map((s: any) => <option key={s.id} value={s.id}>{s.code ? `[${s.code}] ` : ''}{s.name}</option>)}
-                                            </select>
+                                    <div key={index} className="border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800/60 shadow-sm overflow-hidden">
+                                        {/* Card Header */}
+                                        <div className="flex items-center justify-between px-4 py-2 bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
+                                            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Ítem #{index + 1}</span>
+                                            {saleItems.length > 1 && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setSaleItems(saleItems.filter((_, i) => i !== index))}
+                                                    className="flex items-center gap-1 text-xs text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-900/20 px-2 py-1 rounded-md transition-colors"
+                                                    title="Quitar ítem"
+                                                >
+                                                    <X size={14} /> Quitar
+                                                </button>
+                                            )}
                                         </div>
-                                        <div className="w-full md:w-24 shrink-0">
-                                            <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Cantidad</label>
-                                            <input 
-                                                required 
-                                                type="number" 
-                                                value={item.quantity === undefined ? 1 : item.quantity}
-                                                min="1" 
-                                                className="w-full rounded-lg border-slate-300 dark:border-slate-700 border p-2.5 focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 text-center" 
-                                                disabled={isPending} 
-                                                onChange={(e) => {
-                                                    const newItems = [...saleItems];
-                                                    const val = e.target.value;
-                                                    const serviceDef = services.find((s: any) => s.id.toString() === item.serviceId);
-                                                    if (val === '') {
-                                                        newItems[index] = { ...newItems[index], quantity: '' as any };
-                                                    } else {
-                                                        const num = Number(val);
-                                                        newItems[index] = { ...newItems[index], quantity: num };
-                                                        if(serviceDef) newItems[index].price = serviceDef.cost * num;
-                                                    }
-                                                    setSaleItems(newItems);
-                                                }} 
-                                            />
+
+                                        <div className="p-4 space-y-3">
+                                            {/* Fila 1: Servicio + Cantidad + Precio unitario + Total */}
+                                            <div className="grid grid-cols-12 gap-3 items-start">
+                                                {/* Servicio */}
+                                                <div className="col-span-12 md:col-span-5">
+                                                    <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Servicio Vendido</label>
+                                                    <select
+                                                        required
+                                                        value={item.serviceId}
+                                                        onChange={(e) => {
+                                                            const newServiceId = e.target.value;
+                                                            const serviceDef = services.find((s: any) => s.id.toString() === newServiceId);
+                                                            const cost = serviceDef ? serviceDef.cost : 0;
+                                                            const newItems = [...saleItems];
+                                                            newItems[index] = { ...newItems[index], serviceId: newServiceId, unitPrice: cost, price: cost * (Number(newItems[index].quantity) || 1) };
+                                                            setSaleItems(newItems);
+                                                            setSalePendingPrice(null);
+                                                        }}
+                                                        className="w-full rounded-lg border-slate-300 dark:border-slate-700 border p-2.5 focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 text-sm"
+                                                        disabled={isPending}
+                                                    >
+                                                        <option value="">Seleccionar...</option>
+                                                        {services.map((s: any) => <option key={s.id} value={s.id}>{s.code ? `[${s.code}] ` : ''}{s.name}</option>)}
+                                                    </select>
+                                                </div>
+
+                                                {/* Cantidad */}
+                                                <div className="col-span-4 md:col-span-2">
+                                                    <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Cantidad</label>
+                                                    <input
+                                                        required
+                                                        type="number"
+                                                        value={item.quantity === undefined ? 1 : item.quantity}
+                                                        min="1"
+                                                        className="w-full rounded-lg border-slate-300 dark:border-slate-700 border p-2.5 focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 text-center text-sm"
+                                                        disabled={isPending}
+                                                        onChange={(e) => {
+                                                            const val = e.target.value;
+                                                            const newItems = [...saleItems];
+                                                            if (val === '') {
+                                                                newItems[index] = { ...newItems[index], quantity: '' as any };
+                                                            } else {
+                                                                const newQty = Number(val);
+                                                                const uPrice = newItems[index].unitPrice || 0;
+                                                                newItems[index] = { ...newItems[index], quantity: newQty, price: uPrice * newQty };
+                                                            }
+                                                            setSaleItems(newItems);
+                                                        }}
+                                                    />
+                                                </div>
+
+                                                {/* Precio unitario */}
+                                                <div className="col-span-8 md:col-span-3">
+                                                    <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Precio unitario <span className="text-slate-400">(Sin IVA)</span></label>
+                                                    <input
+                                                        required
+                                                        type="number"
+                                                        value={salePendingPrice?.idx === index ? salePendingPrice.pendingValue : item.unitPrice}
+                                                        placeholder="0"
+                                                        min="0"
+                                                        className={`w-full rounded-lg border p-2.5 focus:ring-2 outline-none text-sm bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 ${salePendingPrice?.idx === index ? 'border-amber-400 ring-2 ring-amber-200 dark:ring-amber-800' : 'border-slate-300 dark:border-slate-700 focus:ring-blue-500'}`}
+                                                        disabled={isPending}
+                                                        onChange={(e) => setSalePendingPrice({ idx: index, pendingValue: Number(e.target.value) || 0 })}
+                                                    />
+                                                </div>
+
+                                                {/* Total (read-only) */}
+                                                <div className="col-span-12 md:col-span-2">
+                                                    <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Total</label>
+                                                    <div className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 p-2.5 text-sm font-bold text-slate-700 dark:text-slate-200 text-right">
+                                                        {formatCurrency(salePendingPrice?.idx === index
+                                                            ? salePendingPrice.pendingValue * (Number(item.quantity) || 1)
+                                                            : item.price)}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Banner de confirmación de precio */}
+                                            {salePendingPrice?.idx === index && (
+                                                <div className="flex items-center gap-3 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 rounded-lg">
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-xs font-semibold text-amber-800 dark:text-amber-200">
+                                                            ¿Cambiar precio unitario de{' '}
+                                                            <span className="line-through opacity-70">{formatCurrency(item.unitPrice)}</span>
+                                                            {' '}a{' '}
+                                                            <span className="font-black">{formatCurrency(salePendingPrice.pendingValue)}</span>?
+                                                        </p>
+                                                    </div>
+                                                    <div className="flex gap-2 shrink-0">
+                                                        <button type="button" onClick={() => {
+                                                            const newUP = salePendingPrice.pendingValue;
+                                                            const newItems = [...saleItems];
+                                                            const qty = Number(newItems[index].quantity) || 1;
+                                                            newItems[index] = { ...newItems[index], unitPrice: newUP, price: newUP * qty };
+                                                            setSaleItems(newItems);
+                                                            setSalePendingPrice(null);
+                                                        }} className="bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap">
+                                                            ✓ Confirmar
+                                                        </button>
+                                                        <button type="button" onClick={() => setSalePendingPrice(null)} className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors">
+                                                            Cancelar
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Fila 2: Detalle + Observaciones */}
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div>
+                                                    <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Detalle <span className="text-slate-400">(Ej. Líneas)</span></label>
+                                                    <input
+                                                        type="text"
+                                                        value={item.details || ''}
+                                                        placeholder="Opcional"
+                                                        className="w-full rounded-lg border-slate-300 dark:border-slate-700 border p-2.5 focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 text-sm"
+                                                        disabled={isPending}
+                                                        onChange={(e) => {
+                                                            const newItems = [...saleItems];
+                                                            newItems[index] = { ...newItems[index], details: e.target.value };
+                                                            setSaleItems(newItems);
+                                                        }}
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Observaciones</label>
+                                                    <input
+                                                        type="text"
+                                                        value={item.observations || ''}
+                                                        placeholder="Opcional"
+                                                        className="w-full rounded-lg border-slate-300 dark:border-slate-700 border p-2.5 focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 text-sm"
+                                                        disabled={isPending}
+                                                        onChange={(e) => {
+                                                            const newItems = [...saleItems];
+                                                            newItems[index] = { ...newItems[index], observations: e.target.value };
+                                                            setSaleItems(newItems);
+                                                        }}
+                                                    />
+                                                </div>
+                                            </div>
                                         </div>
-                                        <div className="w-full md:w-32 lg:w-40 shrink-0">
-                                            <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Precio (Sin IVA)</label>
-                                            <input 
-                                                required 
-                                                type="number" 
-                                                value={item.price === 0 && item.serviceId === '' ? '' : item.price}
-                                                placeholder="0.00" 
-                                                min="0" 
-                                                className="w-full rounded-lg border-slate-300 dark:border-slate-700 border p-2.5 focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 placeholder:text-slate-400" 
-                                                disabled={isPending} 
-                                                onChange={(e) => {
-                                                    const newItems = [...saleItems];
-                                                    newItems[index] = { ...newItems[index], price: Number(e.target.value) || 0 };
-                                                    setSaleItems(newItems);
-                                                }} 
-                                            />
-                                        </div>
-                                        <div className="w-full md:w-1/4">
-                                            <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Detalle (Ej. Líneas)</label>
-                                            <input 
-                                                type="text" 
-                                                value={item.details || ''}
-                                                placeholder="Opcional" 
-                                                className="w-full rounded-lg border-slate-300 dark:border-slate-700 border p-2.5 focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 placeholder:text-slate-400" 
-                                                disabled={isPending} 
-                                                onChange={(e) => {
-                                                    const newItems = [...saleItems];
-                                                    newItems[index] = { ...newItems[index], details: e.target.value };
-                                                    setSaleItems(newItems);
-                                                }} 
-                                            />
-                                        </div>
-                                        <div className="w-full md:w-1/4">
-                                            <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Observaciones</label>
-                                            <input 
-                                                type="text" 
-                                                value={item.observations || ''}
-                                                placeholder="Opcional" 
-                                                className="w-full rounded-lg border-slate-300 dark:border-slate-700 border p-2.5 focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 placeholder:text-slate-400" 
-                                                disabled={isPending} 
-                                                onChange={(e) => {
-                                                    const newItems = [...saleItems];
-                                                    newItems[index] = { ...newItems[index], observations: e.target.value };
-                                                    setSaleItems(newItems);
-                                                }} 
-                                            />
-                                        </div>
-                                        {saleItems.length > 1 && (
-                                            <button 
-                                                type="button" 
-                                                onClick={() => {
-                                                    const newItems = saleItems.filter((_, i) => i !== index);
-                                                    setSaleItems(newItems);
-                                                }}
-                                                className="p-2.5 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors mb-0.5 shrink-0"
-                                                title="Quitar ítem"
-                                            >
-                                                <X size={20} />
-                                            </button>
-                                        )}
                                     </div>
                                 ))}
-                                
-                                <button 
-                                    type="button" 
-                                    onClick={() => setSaleItems([...saleItems, {serviceId: '', price: 0, details: '', observations: ''}])}
-                                    className="text-sm font-bold text-blue-600 hover:text-blue-800 flex items-center mt-2 p-1 hover:bg-blue-50 rounded transition-colors"
+                                </div>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setSaleItems([...saleItems, {serviceId: '', price: 0, unitPrice: 0, details: '', observations: ''}])}
+                                    className="mt-3 text-sm font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1.5 px-3 py-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg border-2 border-dashed border-blue-200 dark:border-blue-800 w-full justify-center transition-colors"
                                 >
-                                    <Plus size={16} className="mr-1" /> Agregar otro servicio
+                                    <Plus size={16} /> Agregar otro servicio
                                 </button>
                             </div>
 
@@ -1347,7 +1429,7 @@ export default function ClientManager({ initialClients, services, role }: { init
 
                             </div>
                             <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 mt-2 shrink-0">
-                                <button type="button" onClick={() => { setIsCreateSaleModalOpen(false); setSaleItems([{serviceId: '', price: 0}]); }} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium transition-colors" disabled={isPending}>Cancelar</button>
+                                <button type="button" onClick={() => { setIsCreateSaleModalOpen(false); setSaleItems([{serviceId: '', price: 0, unitPrice: 0}]); }} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium transition-colors" disabled={isPending}>Cancelar</button>
                                 <button type="submit" disabled={isPending} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-bold flex items-center transition-colors disabled:opacity-50">
                                     Emitir Factura
                                 </button>

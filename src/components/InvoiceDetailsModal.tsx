@@ -74,8 +74,18 @@ export default function InvoiceDetailsModal({ invoice, onClose }: InvoiceDetails
                             <div className="space-y-2 text-sm text-slate-600 dark:text-slate-300 mt-2">
                                 <div className="flex justify-between"><span className="font-medium">Fecha Emisión:</span> <span>{new Date(invoice.date).toLocaleDateString()}</span></div>
                                 {invoice.paymentDeadline && <div className="flex justify-between"><span className="font-medium">Vencimiento:</span> <span>{new Date(invoice.paymentDeadline).toLocaleDateString()}</span></div>}
-                                {invoice.cycleStartDate && <div className="flex justify-between"><span className="font-medium">Inicio Ciclo:</span> <span>{new Date(invoice.cycleStartDate).toLocaleDateString()}</span></div>}
-                                {invoice.cycleEndDate && <div className="flex justify-between"><span className="font-medium">Fin Ciclo:</span> <span>{new Date(invoice.cycleEndDate).toLocaleDateString()}</span></div>}
+                                {invoice.payments && invoice.payments.length > 0 && (
+                                    <div className="flex justify-between">
+                                        <span className="font-medium">Fecha de Pago:</span>
+                                        <span>{new Date(Math.max(...invoice.payments.map((p: any) => new Date(p.date).getTime()))).toLocaleDateString()}</span>
+                                    </div>
+                                )}
+                                {invoice.payments && invoice.payments.length > 0 && invoice.payments[invoice.payments.length - 1].method && (
+                                    <div className="flex justify-between">
+                                        <span className="font-medium">Método de Pago:</span>
+                                        <span className="font-semibold text-indigo-600 dark:text-indigo-400">{invoice.payments[invoice.payments.length - 1].method}</span>
+                                    </div>
+                                )}
                                 <div className="flex justify-between"><span className="font-medium">Estado:</span> 
                                     <span className={`font-bold ${invoice.salePrice - invoice.amountPaid <= 0 ? 'text-emerald-600' : invoice.amountPaid > 0 ? 'text-amber-600' : 'text-rose-600'}`}>
                                         {invoice.salePrice - invoice.amountPaid <= 0 ? 'Pagado' : invoice.amountPaid > 0 ? 'Abono Parcial' : 'Pendiente'}

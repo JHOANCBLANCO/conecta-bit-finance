@@ -274,16 +274,18 @@ export default function SalesManager({ initialSales, clients, services, paymentM
                                         </td>
                                         <td className="p-4 text-center">
                                             <div className="flex items-center justify-center gap-1">
-                                                {/* Botón de Abonar visible para AGENT y ADMIN */}
-                                                {isDebt ? (
-                                                    <button
-                                                        onClick={() => { setSelectedSale(sale); setPaymentDate(new Date().toISOString().split('T')[0]); setIsPaymentModalOpen(true); }}
-                                                        className="inline-flex items-center text-sm bg-slate-100 hover:bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg transition-colors font-medium border border-blue-200"
-                                                        title="Hacer un abono"
-                                                    >
-                                                        <CreditCard size={14} className="mr-1.5" /> Abonar
-                                                    </button>
-                                                ) : <span className="text-xs text-slate-400 font-medium px-3 py-1.5">Cancelado</span>}
+                                                {/* Botón de Abonar visible siempre */}
+                                                <button
+                                                    onClick={() => { setSelectedSale(sale); setPaymentDate(new Date().toISOString().split('T')[0]); setIsPaymentModalOpen(true); }}
+                                                    className={`inline-flex items-center text-sm px-3 py-1.5 rounded-lg transition-colors font-medium border ${
+                                                        isDebt
+                                                            ? 'bg-slate-100 hover:bg-blue-100 text-blue-700 border-blue-200'
+                                                            : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200'
+                                                    }`}
+                                                    title={isDebt ? 'Hacer un abono' : 'Registrar abono adicional'}
+                                                >
+                                                    <CreditCard size={14} className="mr-1.5" /> {isDebt ? 'Abonar' : 'Abonar'}
+                                                </button>
 
                                                 {/* Botón de Ver Detalles */}
                                                 <button
@@ -390,7 +392,6 @@ export default function SalesManager({ initialSales, clients, services, paymentM
                                         required
                                         type="number"
                                         min="1"
-                                        max={selectedSale.salePrice - selectedSale.amountPaid}
                                         value={paymentAmount}
                                         onChange={(e) => setPaymentAmount(e.target.value)}
                                         className="w-full pl-8 rounded-lg border-slate-300 dark:border-slate-700 border p-3 focus:ring-2 focus:ring-emerald-500 dark:focus:ring-emerald-600 outline-none font-medium text-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 placeholder:text-slate-400"
@@ -398,7 +399,11 @@ export default function SalesManager({ initialSales, clients, services, paymentM
                                         disabled={isPending}
                                     />
                                 </div>
-                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">El abono no puede superar la deuda actual.</p>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+                                    {selectedSale.salePrice - selectedSale.amountPaid > 0
+                                        ? 'El abono no puede superar la deuda actual.'
+                                        : <span className="text-emerald-600 font-semibold">Esta factura ya está pagada. Puedes registrar un abono adicional.</span>}
+                                </p>
                             </div>
 
                             <div>
