@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useTransition, useState } from 'react';
-import { Plus, Trash2, Pencil, X, Upload, Eye, FileUp, Download } from 'lucide-react';
+import { Plus, Trash2, Pencil, X, Upload, Eye, FileUp, Download, Calendar, History, Search } from 'lucide-react';
 import { addExpense, deleteExpense, updateExpense, uploadExpenseReceipt, deleteExpenseReceipt } from '@/app/actions';
 
 export default function ExpenseManager({ initialExpenses, role }: { initialExpenses: any[], role: string }) {
@@ -20,6 +20,47 @@ export default function ExpenseManager({ initialExpenses, role }: { initialExpen
     // States for EDIT Modal
     const [expenseAmountEdit, setExpenseAmountEdit] = useState<number | ''>('');
     const [hasIvaEdit, setHasIvaEdit] = useState(false);
+
+    // States for Filtering
+    const [activeTab, setActiveTab] = useState<'MONTH' | 'HISTORY'>('MONTH');
+    const [searchTerm, setSearchTerm] = useState('');
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
+
+    const filteredExpenses = initialExpenses.filter(expense => {
+        const expenseDate = new Date(expense.date);
+        
+        let start: Date;
+        let end: Date;
+        let passDateFilter = true;
+
+        if (activeTab === 'MONTH') {
+            const now = new Date();
+            start = new Date(now.getFullYear(), now.getMonth(), 1);
+            end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+            passDateFilter = expenseDate >= start && expenseDate <= end;
+        } else {
+            if (startDate || endDate) {
+                start = startDate ? new Date(startDate + 'T00:00:00') : new Date(0);
+                end = endDate ? new Date(endDate + 'T23:59:59') : new Date('2100-01-01');
+                passDateFilter = expenseDate >= start && expenseDate <= end;
+            } else {
+                passDateFilter = true;
+            }
+        }
+
+        if (!passDateFilter) return false;
+
+        if (searchTerm) {
+            const term = searchTerm.toLowerCase();
+            const conceptMatch = (expense.name || '').toLowerCase().includes(term);
+            const providerMatch = (expense.provider || '').toLowerCase().includes(term);
+            const descriptionMatch = (expense.description || '').toLowerCase().includes(term);
+            if (!conceptMatch && !providerMatch && !descriptionMatch) return false;
+        }
+
+        return true;
+    });
 
     const handleAction = (actionFn: () => Promise<any>, onSuccess?: () => void) => {
         startTransition(async () => {
@@ -71,6 +112,52 @@ export default function ExpenseManager({ initialExpenses, role }: { initialExpen
                     </form>
                 </div>
 
+                {/* CONTROLES DE FILTRADO */}
+                <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/20 flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between">
+                    <div className="flex flex-wrap items-center gap-3">
+                        <div className="inline-flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl shadow-inner border border-slate-200 dark:border-slate-700">
+                            <button
+                                type="button"
+                                onClick={() => setActiveTab('MONTH')}
+                                className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center transition-all ${activeTab === 'MONTH' ? 'bg-white dark:bg-slate-700 text-blue-700 dark:text-blue-450 shadow-sm border border-slate-200/50 dark:border-slate-600/50' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700/30'}`}
+                            >
+                                <Calendar className="w-4 h-4 mr-2" /> Mes Actual
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setActiveTab('HISTORY')}
+                                className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center transition-all ${activeTab === 'HISTORY' ? 'bg-white dark:bg-slate-700 text-indigo-700 dark:text-indigo-455 shadow-sm border border-slate-200/50 dark:border-slate-600/50' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700/30'}`}
+                            >
+                                <History className="w-4 h-4 mr-2" /> Histórico
+                            </button>
+                        </div>
+
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                            <input
+                                type="text"
+                                placeholder="Buscar por concepto, proveedor o desc..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="pl-9 pr-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-sm outline-none focus:ring-2 focus:ring-rose-500 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 w-64"
+                            />
+                        </div>
+                    </div>
+
+                    {activeTab === 'HISTORY' && (
+                        <div className="flex flex-wrap gap-4 items-center animate-in fade-in slide-in-from-top-2">
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Desde</span>
+                                <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="rounded-lg border-slate-300 dark:border-slate-700 border p-2 text-sm outline-none focus:ring-2 focus:ring-rose-500 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-150" />
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Hasta</span>
+                                <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="rounded-lg border-slate-300 dark:border-slate-700 border p-2 text-sm outline-none focus:ring-2 focus:ring-rose-500 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-150" />
+                            </div>
+                        </div>
+                    )}
+                </div>
+
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                         <thead>
@@ -86,9 +173,9 @@ export default function ExpenseManager({ initialExpenses, role }: { initialExpen
                             </tr>
                         </thead>
                         <tbody className={isPending ? 'opacity-50 pointer-events-none' : ''}>
-                            {initialExpenses.length === 0 ? (
-                                <tr><td colSpan={5} className="p-8 text-center text-slate-500 dark:text-slate-400">No hay gastos registrados.</td></tr>
-                            ) : initialExpenses.map((expense: any) => (
+                            {filteredExpenses.length === 0 ? (
+                                <tr><td colSpan={role === 'ADMIN' ? 8 : 7} className="p-8 text-center text-slate-500 dark:text-slate-400">No se encontraron gastos.</td></tr>
+                            ) : filteredExpenses.map((expense: any) => (
                                 <tr key={expense.id} className="border-b border-slate-100 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                                     <td className="p-4 text-slate-500 dark:text-slate-400 text-sm">{new Date(expense.date).toLocaleDateString()}</td>
                                     <td className="p-4 font-medium text-slate-800 dark:text-slate-200">{expense.name}</td>

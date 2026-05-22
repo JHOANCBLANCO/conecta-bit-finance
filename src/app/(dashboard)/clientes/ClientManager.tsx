@@ -64,6 +64,8 @@ export default function ClientManager({ initialClients, services, role }: { init
     const [newPaymentMethodName, setNewPaymentMethodName] = useState('');
     const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
 
+    const remainingDebt = selectedSaleForPayment ? (selectedSaleForPayment.salePrice - selectedSaleForPayment.amountPaid) : 0;
+
     useEffect(() => {
         loadPackagesSummary();
         loadPaymentMethods();
@@ -1634,6 +1636,7 @@ export default function ClientManager({ initialClients, services, role }: { init
                                         required
                                         type="number"
                                         min="0.01"
+                                        max={remainingDebt > 0 ? remainingDebt : 0}
                                         step="any"
                                         value={paymentAmount}
                                         onChange={(e) => setPaymentAmount(e.target.value)}
@@ -1642,10 +1645,16 @@ export default function ClientManager({ initialClients, services, role }: { init
                                         disabled={isPending}
                                     />
                                 </div>
-                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-                                    {selectedSaleForPayment.salePrice - selectedSaleForPayment.amountPaid > 0
-                                        ? 'El abono no puede superar la deuda actual.'
-                                        : <span className="text-emerald-600 font-semibold">Esta factura ya está pagada. Puedes registrar un abono adicional.</span>}
+                                <p className="text-xs mt-2">
+                                    {remainingDebt > 0 ? (
+                                        Number(paymentAmount) > remainingDebt ? (
+                                            <span className="text-rose-600 dark:text-rose-400 font-semibold">El monto a abonar no puede ser mayor al valor adeudado ({formatCurrency(remainingDebt)}).</span>
+                                        ) : (
+                                            <span className="text-slate-500 dark:text-slate-400">El abono no puede superar la deuda actual ({formatCurrency(remainingDebt)}).</span>
+                                        )
+                                    ) : (
+                                        <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Esta factura ya está pagada.</span>
+                                    )}
                                 </p>
                             </div>
 
@@ -1710,7 +1719,7 @@ export default function ClientManager({ initialClients, services, role }: { init
 
                             <div className="flex gap-3 pt-4">
                                 <button type="button" onClick={() => { setIsPaymentModalOpen(false); setSelectedSaleForPayment(null); setPaymentAmount(''); setPaymentDate(''); }} className="flex-1 px-4 py-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl font-medium hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors" disabled={isPending}>Cancelar</button>
-                                <button type="submit" disabled={!paymentAmount || Number(paymentAmount) <= 0 || isPending} className="flex-1 px-4 py-3 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 transition-colors shadow-lg shadow-emerald-200 dark:shadow-emerald-900/20 disabled:opacity-50">Confirmar Abono</button>
+                                <button type="submit" disabled={!paymentAmount || Number(paymentAmount) <= 0 || (remainingDebt > 0 && Number(paymentAmount) > remainingDebt) || remainingDebt <= 0 || isPending} className="flex-1 px-4 py-3 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 transition-colors shadow-lg shadow-emerald-200 dark:shadow-emerald-900/20 disabled:opacity-50">Confirmar Abono</button>
                             </div>
                         </form>
                     </div>
