@@ -33,7 +33,13 @@ export default function ExpenseManager({ initialExpenses, role }: { initialExpen
     };
 
     const formatCurrency = (amount: number) => {
-        return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(amount);
+        const hasDecimals = amount % 1 !== 0;
+        return new Intl.NumberFormat('es-CO', { 
+            style: 'currency', 
+            currency: 'COP', 
+            minimumFractionDigits: hasDecimals ? 2 : 0, 
+            maximumFractionDigits: hasDecimals ? 2 : 0 
+        }).format(amount);
     };
 
     return (
@@ -188,7 +194,7 @@ export default function ExpenseManager({ initialExpenses, role }: { initialExpen
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Monto Total Pagado ($)</label>
-                                <input required type="number" name="amount" value={expenseAmountEdit} onChange={(e) => setExpenseAmountEdit(e.target.value ? Number(e.target.value) : '')} min="0" className="w-full rounded-lg border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border p-2.5 focus:ring-2 focus:ring-blue-500 outline-none" disabled={isPending} />
+                                <input required type="number" name="amount" value={expenseAmountEdit} onChange={(e) => setExpenseAmountEdit(e.target.value ? Number(e.target.value) : '')} min="0" step="any" className="w-full rounded-lg border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border p-2.5 focus:ring-2 focus:ring-blue-500 outline-none" disabled={isPending} />
                             </div>
 
                             <div className="flex items-center gap-3 pt-2">
@@ -276,7 +282,7 @@ export default function ExpenseManager({ initialExpenses, role }: { initialExpen
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Monto Total Pagado ($)</label>
-                                <input required type="number" name="amount" value={expenseAmountAdd} onChange={(e) => setExpenseAmountAdd(e.target.value ? Number(e.target.value) : '')} min="0" placeholder="0.00" className="w-full rounded-lg border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border p-2.5 focus:ring-2 focus:ring-blue-500 outline-none" disabled={isPending} />
+                                <input required type="number" name="amount" value={expenseAmountAdd} onChange={(e) => setExpenseAmountAdd(e.target.value ? Number(e.target.value) : '')} min="0" placeholder="0.00" step="any" className="w-full rounded-lg border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border p-2.5 focus:ring-2 focus:ring-blue-500 outline-none" disabled={isPending} />
                             </div>
 
                             <div className="flex items-center gap-3 pt-2">

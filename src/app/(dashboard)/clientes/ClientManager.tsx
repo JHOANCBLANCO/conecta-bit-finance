@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState, useTransition, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Mail, Phone, Briefcase, FileText, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ListChecks, X, Power, Search, History, Copy, Download, Pencil, Activity, Trash, Upload, FileUp, Eye, StickyNote } from 'lucide-react';
-import { addClient, deleteClient, updateClient, getClientSales, addSale, getClientPackage, upsertPackage, getAllPackagesSummary, togglePackageItemStatus, deleteSale, updateSale, uploadInvoiceFile, deleteInvoiceFile } from '@/app/actions';
+import { Plus, Edit2, Trash2, Mail, Phone, Briefcase, FileText, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ListChecks, X, Power, Search, History, Copy, Download, Pencil, Activity, Trash, Upload, FileUp, Eye, StickyNote, DollarSign } from 'lucide-react';
+import { addClient, deleteClient, updateClient, getClientSales, addSale, getClientPackage, upsertPackage, getAllPackagesSummary, togglePackageItemStatus, deleteSale, updateSale, uploadInvoiceFile, deleteInvoiceFile, addPayment, getPaymentMethods, addPaymentMethod } from '@/app/actions';
 import InvoiceDetailsModal, { parseInvoiceItems, getCleanNotes } from '@/components/InvoiceDetailsModal';
 
 export default function ClientManager({ initialClients, services, role }: { initialClients: any[], services: any[], role: string }) {
@@ -54,9 +54,29 @@ export default function ClientManager({ initialClients, services, role }: { init
     const [isInvoiceDetailsModalOpen, setIsInvoiceDetailsModalOpen] = useState(false);
     const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
 
+    // Payment Modal State
+    const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+    const [selectedSaleForPayment, setSelectedSaleForPayment] = useState<any>(null);
+    const [paymentAmount, setPaymentAmount] = useState('');
+    const [paymentDate, setPaymentDate] = useState('');
+    const [paymentMethod, setPaymentMethod] = useState('');
+    const [isCreatingPaymentMethod, setIsCreatingPaymentMethod] = useState(false);
+    const [newPaymentMethodName, setNewPaymentMethodName] = useState('');
+    const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
+
     useEffect(() => {
         loadPackagesSummary();
+        loadPaymentMethods();
     }, []);
+
+    const loadPaymentMethods = async () => {
+        try {
+            const methods = await getPaymentMethods();
+            setPaymentMethods(methods);
+        } catch (error) {
+            console.error("Failed to fetch payment methods", error);
+        }
+    };
 
     const loadPackagesSummary = async () => {
         try {
@@ -135,7 +155,13 @@ export default function ClientManager({ initialClients, services, role }: { init
     });
 
     const formatCurrency = (amount: number) => {
-        return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(amount);
+        const hasDecimals = amount % 1 !== 0;
+        return new Intl.NumberFormat('es-CO', { 
+            style: 'currency', 
+            currency: 'COP', 
+            minimumFractionDigits: hasDecimals ? 2 : 0,
+            maximumFractionDigits: hasDecimals ? 2 : 0 
+        }).format(amount);
     };
 
     const downloadCSV = () => {
@@ -772,6 +798,7 @@ export default function ClientManager({ initialClients, services, role }: { init
                                                                         <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 text-sm">$</span>
                                                                         <input 
                                                                             type="number" 
+                                                                            step="any"
                                                                             required 
                                                                             value={pkgPendingPrice?.idx === idx ? pkgPendingPrice.pendingValue : item.unitPrice}
                                                                             onChange={(e) => {
@@ -988,6 +1015,23 @@ export default function ClientManager({ initialClients, services, role }: { init
                                                                         {/* Eye button — Invoice Details (shared modal) */}
                                                                         <button onClick={() => { setSelectedInvoice(sale); setIsInvoiceDetailsModalOpen(true); }} className="p-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-lg transition-colors border border-indigo-100" title="Ver Detalles">
                                                                             <Eye size={16} />
+                                                                        </button>
+
+                                                                        {/* Dollar button — Register Payment */}
+                                                                        <button onClick={() => {
+                                                                            setSelectedSaleForPayment(sale);
+                                                                            setPaymentAmount('');
+                                                                            const today = new Date();
+                                                                            const yyyy = today.getFullYear();
+                                                                            const mm = String(today.getMonth() + 1).padStart(2, '0');
+                                                                            const dd = String(today.getDate()).padStart(2, '0');
+                                                                            setPaymentDate(`${yyyy}-${mm}-${dd}`);
+                                                                            setPaymentMethod('');
+                                                                            setIsCreatingPaymentMethod(false);
+                                                                            setNewPaymentMethodName('');
+                                                                            setIsPaymentModalOpen(true);
+                                                                        }} className="p-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-lg transition-colors border border-emerald-100" title="Registrar Pago">
+                                                                            <DollarSign size={16} />
                                                                         </button>
                                                                         {sale.invoiceFileUrl ? (
                                                                             <div className="flex bg-emerald-50 rounded-lg overflow-hidden border border-emerald-100">
@@ -1240,6 +1284,7 @@ export default function ClientManager({ initialClients, services, role }: { init
                                                     <input
                                                         required
                                                         type="number"
+                                                        step="any"
                                                         value={salePendingPrice?.idx === index ? salePendingPrice.pendingValue : item.unitPrice}
                                                         placeholder="0"
                                                         min="0"
@@ -1477,7 +1522,7 @@ export default function ClientManager({ initialClients, services, role }: { init
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-1">Total Factura (Inc. IVA si aplica)</label>
-                                    <input type="number" name="salePrice" defaultValue={selectedSaleForEdit.salePrice} min={selectedSaleForEdit.amountPaid} className="w-full rounded-lg border-slate-300 border p-2 focus:ring-2 focus:ring-blue-500 outline-none" required disabled={isPending} />
+                                    <input type="number" step="any" name="salePrice" defaultValue={selectedSaleForEdit.salePrice} min={selectedSaleForEdit.amountPaid} className="w-full rounded-lg border-slate-300 border p-2 focus:ring-2 focus:ring-blue-500 outline-none" required disabled={isPending} />
                                     <p className="text-[10px] text-slate-500 mt-1">Nota: No puede ser menor a lo ya pagado ({formatCurrency(selectedSaleForEdit.amountPaid)})</p>
                                 </div>
                                 <div className="col-span-1">
@@ -1524,6 +1569,150 @@ export default function ClientManager({ initialClients, services, role }: { init
                                 });
                             }} className="flex-1 px-4 py-2.5 bg-rose-600 text-white rounded-lg font-bold hover:bg-rose-700 transition-colors shadow-lg shadow-rose-200 disabled:opacity-50" disabled={isPending}>Eliminar</button>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* MODAL REGISTRAR ABONO */}
+            {isPaymentModalOpen && selectedSaleForPayment && (
+                <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[60]">
+                    <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-200">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100">Registrar Pago</h3>
+                            <button onClick={() => { setIsPaymentModalOpen(false); setSelectedSaleForPayment(null); setPaymentAmount(''); setPaymentDate(''); setPaymentMethod(''); setIsCreatingPaymentMethod(false); setNewPaymentMethodName(''); }} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"><X size={24} /></button>
+                        </div>
+
+                        <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl mb-6 border border-slate-100 dark:border-slate-800">
+                            <div className="flex justify-between mb-2">
+                                <span className="text-slate-500 dark:text-slate-400 text-sm">Cliente:</span>
+                                <span className="font-medium text-slate-800 dark:text-slate-200">{selectedClient?.name}</span>
+                            </div>
+                            <div className="flex justify-between mb-2">
+                                <span className="text-slate-500 dark:text-slate-400 text-sm">Total Venta:</span>
+                                <span className="font-medium text-slate-800 dark:text-slate-200">{formatCurrency(selectedSaleForPayment.salePrice)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-slate-500 dark:text-slate-400 text-sm">Deuda Actual:</span>
+                                <span className="font-bold text-rose-600 dark:text-rose-400">{formatCurrency(selectedSaleForPayment.salePrice - selectedSaleForPayment.amountPaid)}</span>
+                            </div>
+                        </div>
+
+                        <form onSubmit={(e) => {
+                            e.preventDefault();
+                            handleAction(
+                                () => addPayment(selectedSaleForPayment.id, Number(paymentAmount), paymentDate ? new Date(paymentDate + 'T12:00:00') : undefined, paymentMethod),
+                                () => { 
+                                    setIsPaymentModalOpen(false); 
+                                    setSelectedSaleForPayment(null); 
+                                    setPaymentAmount(''); 
+                                    setPaymentDate(''); 
+                                    setPaymentMethod(''); 
+                                    setIsCreatingPaymentMethod(false); 
+                                    setNewPaymentMethodName(''); 
+                                    if (selectedClient) loadClientDetails(selectedClient.id);
+                                }
+                            );
+                        }} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Fecha de Ingreso de Pago</label>
+                                <input
+                                    required
+                                    type="date"
+                                    value={paymentDate}
+                                    onChange={(e) => setPaymentDate(e.target.value)}
+                                    className="w-full rounded-lg border-slate-300 dark:border-slate-700 border p-3 focus:ring-2 focus:ring-emerald-500 dark:focus:ring-emerald-600 outline-none text-slate-700 dark:text-slate-100 bg-white dark:bg-slate-800"
+                                    disabled={isPending}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Monto a Abonar</label>
+                                <div className="relative">
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <span className="text-slate-500 dark:text-slate-400 font-medium">$</span>
+                                    </div>
+                                    <input
+                                        required
+                                        type="number"
+                                        min="0.01"
+                                        step="any"
+                                        value={paymentAmount}
+                                        onChange={(e) => setPaymentAmount(e.target.value)}
+                                        className="w-full pl-8 rounded-lg border-slate-300 dark:border-slate-700 border p-3 focus:ring-2 focus:ring-emerald-500 dark:focus:ring-emerald-600 outline-none font-medium text-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 placeholder:text-slate-400"
+                                        placeholder="0"
+                                        disabled={isPending}
+                                    />
+                                </div>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+                                    {selectedSaleForPayment.salePrice - selectedSaleForPayment.amountPaid > 0
+                                        ? 'El abono no puede superar la deuda actual.'
+                                        : <span className="text-emerald-600 font-semibold">Esta factura ya está pagada. Puedes registrar un abono adicional.</span>}
+                                </p>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Medio de Pago</label>
+                                <div className="flex gap-2">
+                                    <select 
+                                        value={paymentMethod}
+                                        onChange={(e) => setPaymentMethod(e.target.value)}
+                                        className="flex-1 rounded-lg border-slate-300 dark:border-slate-700 border p-3 focus:ring-2 focus:ring-emerald-500 dark:focus:ring-emerald-600 outline-none text-slate-700 dark:text-slate-100 bg-white dark:bg-slate-800"
+                                        disabled={isPending}
+                                    >
+                                        <option value="">No especificado</option>
+                                        {paymentMethods.map((pm: any) => (
+                                            <option key={pm.id} value={pm.name}>{pm.name}</option>
+                                        ))}
+                                    </select>
+                                    {role === 'ADMIN' && (
+                                        <button type="button" onClick={() => setIsCreatingPaymentMethod(true)} className="px-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg border border-slate-300 dark:border-slate-700 transition-colors flex items-center shrink-0">
+                                            <Plus size={20} />
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* SMALL INLINE CREATION IF ADMIN WANTS */}
+                            {isCreatingPaymentMethod && role === 'ADMIN' && (
+                                <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800/30 p-3 rounded-xl flex gap-2 animate-in slide-in-from-top-2">
+                                    <input 
+                                        type="text" 
+                                        placeholder="Ej. Nequi, Daviplata..." 
+                                        value={newPaymentMethodName}
+                                        onChange={(e) => setNewPaymentMethodName(e.target.value)}
+                                        className="flex-1 text-sm rounded-lg border-indigo-200 dark:border-indigo-800 border p-2 focus:ring-2 focus:ring-indigo-500 outline-none bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
+                                        disabled={isPending}
+                                    />
+                                    <button 
+                                        type="button" 
+                                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1"
+                                        disabled={isPending || !newPaymentMethodName.trim()}
+                                        onClick={() => {
+                                            handleAction(() => addPaymentMethod(newPaymentMethodName.trim()).then(pm => {
+                                                setPaymentMethods([...paymentMethods, pm]);
+                                                setPaymentMethod(pm.name);
+                                            }), () => {
+                                                setIsCreatingPaymentMethod(false);
+                                                setNewPaymentMethodName('');
+                                            });
+                                        }}
+                                    >
+                                        Guardar
+                                    </button>
+                                    <button 
+                                        type="button" 
+                                        className="text-slate-400 hover:text-rose-500 p-2 focus:outline-none"
+                                        onClick={() => { setIsCreatingPaymentMethod(false); setNewPaymentMethodName(''); }}
+                                    >
+                                        <X size={16} />
+                                    </button>
+                                </div>
+                            )}
+
+                            <div className="flex gap-3 pt-4">
+                                <button type="button" onClick={() => { setIsPaymentModalOpen(false); setSelectedSaleForPayment(null); setPaymentAmount(''); setPaymentDate(''); }} className="flex-1 px-4 py-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl font-medium hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors" disabled={isPending}>Cancelar</button>
+                                <button type="submit" disabled={!paymentAmount || Number(paymentAmount) <= 0 || isPending} className="flex-1 px-4 py-3 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 transition-colors shadow-lg shadow-emerald-200 dark:shadow-emerald-900/20 disabled:opacity-50">Confirmar Abono</button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}

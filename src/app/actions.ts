@@ -516,7 +516,7 @@ export async function addSale(data: {
         totalReteIva = totalIva * 0.15;
     }
 
-    let finalSalePrice = Math.round(totalBase + totalIva - totalReteIva);
+    let finalSalePrice = Number((totalBase + totalIva - totalReteIva).toFixed(2));
 
     const status = data.amountPaid >= finalSalePrice ? "PAID" : data.amountPaid > 0 ? "PARTIAL" : "PENDING";
     

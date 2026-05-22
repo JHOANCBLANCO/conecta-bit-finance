@@ -27,7 +27,13 @@ export default function OtherExpenseManager({ initialExpenses, role }: { initial
     };
 
     const formatCurrency = (amount: number) => {
-        return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(amount);
+        const hasDecimals = amount % 1 !== 0;
+        return new Intl.NumberFormat('es-CO', { 
+            style: 'currency', 
+            currency: 'COP', 
+            minimumFractionDigits: hasDecimals ? 2 : 0,
+            maximumFractionDigits: hasDecimals ? 2 : 0 
+        }).format(amount);
     };
 
     return (
@@ -183,7 +189,13 @@ export default function OtherExpenseManager({ initialExpenses, role }: { initial
 // Subcomponente reutilizable para el formulario (Crear y Editar)
 function ExpenseFormModal({ initialData, onClose, onSubmit, isPending, isEdit = false }: any) {
     const formatCurrency = (amount: number) => {
-        return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(amount);
+        const hasDecimals = amount % 1 !== 0;
+        return new Intl.NumberFormat('es-CO', { 
+            style: 'currency', 
+            currency: 'COP', 
+            minimumFractionDigits: hasDecimals ? 2 : 0,
+            maximumFractionDigits: hasDecimals ? 2 : 0 
+        }).format(amount);
     };
 
     const [qty, setQty] = useState(initialData?.quantity || 1);
@@ -253,7 +265,7 @@ function ExpenseFormModal({ initialData, onClose, onSubmit, isPending, isEdit = 
                             </div>
                             <div>
                                 <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1 uppercase tracking-wider">Valor Unitario ($) *</label>
-                                <input required type="number" name="unitValue" min="0" step="0.01" value={unitVal || ''} onChange={e => setUnitVal(Number(e.target.value))} className="w-full rounded-xl border-slate-300 dark:border-slate-700 bg-emerald-50 dark:bg-emerald-900/20 text-slate-900 dark:text-slate-100 border p-3 focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-right" disabled={isPending} />
+                                <input required type="number" name="unitValue" min="0" step="any" value={unitVal || ''} onChange={e => setUnitVal(Number(e.target.value))} className="w-full rounded-xl border-slate-300 dark:border-slate-700 bg-emerald-50 dark:bg-emerald-900/20 text-slate-900 dark:text-slate-100 border p-3 focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-right" disabled={isPending} />
                             </div>
                             <div>
                                 <label className="block text-xs font-bold text-indigo-500 dark:text-indigo-400 mb-1 uppercase tracking-wider">Valor Total</label>

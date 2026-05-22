@@ -26,7 +26,13 @@ export default function ServiceManager({ initialServices, role }: { initialServi
     };
 
     const formatCurrency = (amount: number) => {
-        return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(amount);
+        const hasDecimals = amount % 1 !== 0;
+        return new Intl.NumberFormat('es-CO', { 
+            style: 'currency', 
+            currency: 'COP', 
+            minimumFractionDigits: hasDecimals ? 2 : 0, 
+            maximumFractionDigits: hasDecimals ? 2 : 0 
+        }).format(amount);
     };
 
     // Filter + paginate
@@ -171,7 +177,7 @@ export default function ServiceManager({ initialServices, role }: { initialServi
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Valor de Venta ($)</label>
-                                <input required type="number" name="cost" placeholder="0.00" min="0" className="w-full rounded-lg border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border p-2.5 focus:ring-2 focus:ring-blue-500 outline-none" disabled={isPending} />
+                                <input required type="number" name="cost" placeholder="0.00" min="0" step="any" className="w-full rounded-lg border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border p-2.5 focus:ring-2 focus:ring-blue-500 outline-none" disabled={isPending} />
                             </div>
                             <div className="flex justify-end gap-3 mt-6">
                                 <button type="button" onClick={() => setIsAddModalOpen(false)} className="px-4 py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg font-medium transition-colors" disabled={isPending}>
@@ -221,7 +227,7 @@ export default function ServiceManager({ initialServices, role }: { initialServi
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Valor Venta Base ($)</label>
-                                <input required type="number" name="cost" min="0" defaultValue={selectedService.cost} className="w-full rounded-lg border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border p-2.5 focus:ring-2 focus:ring-blue-500 outline-none" disabled={isPending} />
+                                <input required type="number" name="cost" min="0" step="any" defaultValue={selectedService.cost} className="w-full rounded-lg border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border p-2.5 focus:ring-2 focus:ring-blue-500 outline-none" disabled={isPending} />
                             </div>
                             <div className="flex justify-end gap-3 mt-6">
                                 <button type="button" onClick={() => { setIsEditModalOpen(false); setSelectedService(null); }} className="px-4 py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg font-medium transition-colors" disabled={isPending}>

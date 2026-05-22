@@ -44,7 +44,13 @@ export default function SalesManager({ initialSales, clients, services, paymentM
     };
 
     const formatCurrency = (amount: number) => {
-        return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(amount);
+        const hasDecimals = amount % 1 !== 0;
+        return new Intl.NumberFormat('es-CO', { 
+            style: 'currency', 
+            currency: 'COP', 
+            minimumFractionDigits: hasDecimals ? 2 : 0,
+            maximumFractionDigits: hasDecimals ? 2 : 0 
+        }).format(amount);
     };
 
     const getSaleStatus = (salePrice: number, amountPaid: number) => {
@@ -391,7 +397,8 @@ export default function SalesManager({ initialSales, clients, services, paymentM
                                     <input
                                         required
                                         type="number"
-                                        min="1"
+                                        min="0.01"
+                                        step="any"
                                         value={paymentAmount}
                                         onChange={(e) => setPaymentAmount(e.target.value)}
                                         className="w-full pl-8 rounded-lg border-slate-300 dark:border-slate-700 border p-3 focus:ring-2 focus:ring-emerald-500 dark:focus:ring-emerald-600 outline-none font-medium text-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 placeholder:text-slate-400"
