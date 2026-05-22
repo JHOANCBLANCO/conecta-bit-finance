@@ -12,6 +12,11 @@ export default async function GastosPage() {
     if (!session) redirect("/login");
 
     const expenses = await prisma.expense.findMany({ orderBy: { date: "desc" } });
+    const providers = await prisma.provider.findMany({
+        include: { services: true },
+        orderBy: { name: "asc" }
+    });
 
-    return <ExpenseManager initialExpenses={expenses} role={session.role} />;
+    return <ExpenseManager initialExpenses={expenses} initialProviders={providers} role={session.role} />;
 }
+

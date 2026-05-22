@@ -143,3 +143,23 @@ model OtherExpense {
   totalValue       Float
   createdAt        DateTime @default(now())
 }
+
+model Provider {
+  id        Int               @id @default(autoincrement())
+  name      String            @unique
+  nit       String?
+  services  ProviderService[]
+  createdAt DateTime          @default(now())
+}
+
+model ProviderService {
+  id          Int      @id @default(autoincrement())
+  providerId  Int
+  provider    Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  name        String
+  amount      Float
+  description String?
+  hasIva      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+}
+

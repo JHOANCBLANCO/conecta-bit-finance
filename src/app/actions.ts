@@ -861,6 +861,145 @@ export async function deleteExpenseReceipt(expenseId: number, currentFileUrl: st
     return expense;
 }
 
+// ----------------------
+// PROVIDERS & PROVIDER SERVICES
+// ----------------------
+export async function getProviders() {
+    await requireAuth();
+    return prisma.provider.findMany({
+        include: { services: true },
+        orderBy: { name: "asc" }
+    });
+}
+
+export async function addProvider(data: { name: string; nit?: string }) {
+    await requireAuth();
+    const cleanName = data.name.trim().toUpperCase();
+    const provider = await prisma.provider.create({
+        data: { name: cleanName, nit: data.nit || null }
+    });
+    revalidatePath("/");
+    return provider;
+}
+
+export async function updateProvider(id: number, data: { name: string; nit?: string }) {
+    await requireAdmin();
+    const cleanName = data.name.trim().toUpperCase();
+    const provider = await prisma.provider.update({
+        where: { id },
+        data: { name: cleanName, nit: data.nit || null }
+    });
+    revalidatePath("/");
+    return provider;
+}
+
+export async function deleteProvider(id: number) {
+    await requireAdmin();
+    await prisma.provider.delete({ where: { id } });
+    revalidatePath("/");
+}
+
+export async function addProviderService(data: { providerId: number; name: string; amount: number; description?: string; hasIva: boolean }) {
+    await requireAuth();
+    const cleanName = data.name.trim().toUpperCase();
+    const service = await prisma.providerService.create({
+        data: {
+            providerId: data.providerId,
+            name: cleanName,
+            amount: data.amount,
+            description: data.description || null,
+            hasIva: data.hasIva
+        }
+    });
+    revalidatePath("/");
+    return service;
+}
+
+export async function updateProviderService(id: number, data: { name: string; amount: number; description?: string; hasIva: boolean }) {
+    await requireAdmin();
+    const cleanName = data.name.trim().toUpperCase();
+    const service = await prisma.providerService.update({
+        where: { id },
+        data: {
+            name: cleanName,
+            amount: data.amount,
+            description: data.description || null,
+            hasIva: data.hasIva
+        }
+    });
+    revalidatePath("/");
+    return service;
+}
+
+export async function deleteProviderService(id: number) {
+    await requireAdmin();
+    await prisma.providerService.delete({ where: { id } });
+    revalidatePath("/");
+}
+
+export async function copyExpensesFromPreviousMonth() {
+    await requireAuth();
+
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth(); // 0-indexed
+
+    // Calculate start and end of previous month
+    let prevYear = currentYear;
+    let prevMonth = currentMonth - 1;
+    if (prevMonth < 0) {
+        prevMonth = 11;
+        prevYear -= 1;
+    }
+    const prevMonthStart = new Date(prevYear, prevMonth, 1, 0, 0, 0, 0);
+    const prevMonthEnd = new Date(prevYear, prevMonth + 1, 0, 23, 59, 59, 999);
+
+    // Query expenses of previous month
+    const oldExpenses = await prisma.expense.findMany({
+        where: {
+            date: {
+                gte: prevMonthStart,
+                lte: prevMonthEnd
+            }
+        }
+    });
+
+    if (oldExpenses.length === 0) {
+        throw new Error("No se encontraron gastos en el mes anterior para copiar.");
+    }
+
+    // Map to current month
+    const newExpensesData = oldExpenses.map(old => {
+        const oldDate = new Date(old.date);
+        const oldDay = oldDate.getDate();
+        const maxDays = new Date(currentYear, currentMonth + 1, 0).getDate();
+        const clampedDay = Math.min(oldDay, maxDays);
+        
+        const newDate = new Date(currentYear, currentMonth, clampedDay, oldDate.getHours(), oldDate.getMinutes(), oldDate.getSeconds());
+
+        return {
+            name: old.name,
+            description: old.description,
+            amount: old.amount,
+            hasIva: old.hasIva,
+            baseAmount: old.baseAmount,
+            ivaAmount: old.ivaAmount,
+            provider: old.provider,
+            receiptUrl: null, // Receipts are not copied
+            date: newDate
+        };
+    });
+
+    // Bulk create
+    await prisma.expense.createMany({
+        data: newExpensesData
+    });
+
+    revalidatePath("/");
+    return { count: newExpensesData.length };
+}
+
+
 export async function updateMyPassword(newPassword: string) {
     try {
         const session = await requireAuth();

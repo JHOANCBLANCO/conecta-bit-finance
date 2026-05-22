@@ -1,10 +1,31 @@
 "use client";
 
 import React, { useTransition, useState } from 'react';
-import { Plus, Trash2, Pencil, X, Upload, Eye, FileUp, Download, Calendar, History, Search } from 'lucide-react';
-import { addExpense, deleteExpense, updateExpense, uploadExpenseReceipt, deleteExpenseReceipt } from '@/app/actions';
+import { Plus, Trash2, Pencil, X, Upload, Eye, FileUp, Download, Calendar, History, Search, Building2, Copy, AlertCircle } from 'lucide-react';
+import { 
+    addExpense, 
+    deleteExpense, 
+    updateExpense, 
+    uploadExpenseReceipt, 
+    deleteExpenseReceipt,
+    addProvider,
+    updateProvider,
+    deleteProvider,
+    addProviderService,
+    updateProviderService,
+    deleteProviderService,
+    copyExpensesFromPreviousMonth
+} from '@/app/actions';
 
-export default function ExpenseManager({ initialExpenses, role }: { initialExpenses: any[], role: string }) {
+export default function ExpenseManager({ 
+    initialExpenses, 
+    initialProviders = [], 
+    role 
+}: { 
+    initialExpenses: any[], 
+    initialProviders: any[], 
+    role: string 
+}) {
     const [isPending, startTransition] = useTransition();
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -16,16 +37,39 @@ export default function ExpenseManager({ initialExpenses, role }: { initialExpen
     // States for ADD Modal
     const [expenseAmountAdd, setExpenseAmountAdd] = useState<number | ''>('');
     const [hasIvaAdd, setHasIvaAdd] = useState(false);
+    const [expenseNameAdd, setExpenseNameAdd] = useState('');
+    const [providerNameAdd, setProviderNameAdd] = useState('');
+    const [descriptionAdd, setDescriptionAdd] = useState('');
 
     // States for EDIT Modal
     const [expenseAmountEdit, setExpenseAmountEdit] = useState<number | ''>('');
     const [hasIvaEdit, setHasIvaEdit] = useState(false);
 
+    // States for Provider Management
+    const [isProviderModalOpen, setIsProviderModalOpen] = useState(false);
+    const [selectedProvider, setSelectedProvider] = useState<any>(null);
+    const [providerName, setProviderName] = useState('');
+    const [providerNit, setProviderNit] = useState('');
+
+    // States for Provider Service Management
+    const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
+    const [selectedService, setSelectedService] = useState<any>(null);
+    const [selectedProviderForService, setSelectedProviderForService] = useState<any>(null);
+    const [serviceName, setServiceName] = useState('');
+    const [serviceAmount, setServiceAmount] = useState<number | ''>('');
+    const [serviceDescription, setServiceDescription] = useState('');
+    const [serviceHasIva, setServiceHasIva] = useState(false);
+
+    // States for pre-filling in Gasto Modal
+    const [selectedProviderIdAdd, setSelectedProviderIdAdd] = useState<number | ''>('');
+    const [selectedServiceIdAdd, setSelectedServiceIdAdd] = useState<number | ''>('');
+
     // States for Filtering
-    const [activeTab, setActiveTab] = useState<'MONTH' | 'HISTORY'>('MONTH');
+    const [activeTab, setActiveTab] = useState<'MONTH' | 'HISTORY' | 'PROVIDERS'>('MONTH');
     const [searchTerm, setSearchTerm] = useState('');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
+
 
     const filteredExpenses = initialExpenses.filter(expense => {
         const expenseDate = new Date(expense.date);
@@ -83,6 +127,16 @@ export default function ExpenseManager({ initialExpenses, role }: { initialExpen
         }).format(amount);
     };
 
+    const handleCopyFromPreviousMonth = () => {
+        handleAction(
+            async () => {
+                const res = await copyExpensesFromPreviousMonth();
+                return res;
+            },
+            () => alert("Gastos del mes anterior copiados con éxito.")
+        );
+    };
+
     return (
         <div className="space-y-6 animate-in fade-in duration-300">
             <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden mt-4">
@@ -91,13 +145,40 @@ export default function ExpenseManager({ initialExpenses, role }: { initialExpen
                         <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Gastos Operativos</h3>
                         <p className="text-sm text-slate-500">Gestiona los gastos mensuales y recurrentes de la empresa</p>
                     </div>
-                    <button onClick={() => {
-                        setIsAddModalOpen(true);
-                        setExpenseAmountAdd('');
-                        setHasIvaAdd(false);
-                    }} className="bg-rose-600 hover:bg-rose-700 text-white px-6 py-2.5 rounded-lg font-medium flex items-center justify-center transition-colors shadow-sm whitespace-nowrap">
-                        <Plus size={20} className="mr-2" /> Registrar Gasto
-                    </button>
+                    <div className="flex items-center gap-3 flex-wrap">
+                        {activeTab === 'PROVIDERS' ? (
+                            <button onClick={() => {
+                                setSelectedProvider(null);
+                                setProviderName('');
+                                setProviderNit('');
+                                setIsProviderModalOpen(true);
+                            }} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg font-medium flex items-center justify-center transition-colors shadow-sm whitespace-nowrap cursor-pointer">
+                                <Plus size={20} className="mr-2" /> Crear Proveedor
+                            </button>
+                        ) : (
+                            <>
+                                <button onClick={() => {
+                                    if (confirm("¿Seguro que deseas copiar los gastos recurrentes del mes anterior?")) {
+                                        handleCopyFromPreviousMonth();
+                                    }
+                                }} className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-250 px-5 py-2.5 rounded-lg font-medium flex items-center justify-center transition-colors shadow-sm whitespace-nowrap border border-slate-200 dark:border-slate-700 cursor-pointer">
+                                    <Copy size={18} className="mr-2" /> Copiar Mes Anterior
+                                </button>
+                                <button onClick={() => {
+                                    setExpenseNameAdd('');
+                                    setProviderNameAdd('');
+                                    setDescriptionAdd('');
+                                    setExpenseAmountAdd('');
+                                    setHasIvaAdd(false);
+                                    setSelectedProviderIdAdd('');
+                                    setSelectedServiceIdAdd('');
+                                    setIsAddModalOpen(true);
+                                }} className="bg-rose-600 hover:bg-rose-700 text-white px-6 py-2.5 rounded-lg font-medium flex items-center justify-center transition-colors shadow-sm whitespace-nowrap cursor-pointer">
+                                    <Plus size={20} className="mr-2" /> Registrar Gasto
+                                </button>
+                            </>
+                        )}
+                    </div>
                     <form action={(formData) => {
                         const targetId = uploadExpenseIdRef.current;
                         if (!targetId) return;
@@ -119,29 +200,38 @@ export default function ExpenseManager({ initialExpenses, role }: { initialExpen
                             <button
                                 type="button"
                                 onClick={() => setActiveTab('MONTH')}
-                                className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center transition-all ${activeTab === 'MONTH' ? 'bg-white dark:bg-slate-700 text-blue-700 dark:text-blue-450 shadow-sm border border-slate-200/50 dark:border-slate-600/50' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700/30'}`}
+                                className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center transition-all cursor-pointer ${activeTab === 'MONTH' ? 'bg-white dark:bg-slate-700 text-blue-700 dark:text-blue-450 shadow-sm border border-slate-200/50 dark:border-slate-600/50' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700/30'}`}
                             >
                                 <Calendar className="w-4 h-4 mr-2" /> Mes Actual
                             </button>
                             <button
                                 type="button"
                                 onClick={() => setActiveTab('HISTORY')}
-                                className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center transition-all ${activeTab === 'HISTORY' ? 'bg-white dark:bg-slate-700 text-indigo-700 dark:text-indigo-455 shadow-sm border border-slate-200/50 dark:border-slate-600/50' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700/30'}`}
+                                className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center transition-all cursor-pointer ${activeTab === 'HISTORY' ? 'bg-white dark:bg-slate-700 text-indigo-700 dark:text-indigo-455 shadow-sm border border-slate-200/50 dark:border-slate-600/50' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700/30'}`}
                             >
                                 <History className="w-4 h-4 mr-2" /> Histórico
                             </button>
+                            <button
+                                type="button"
+                                onClick={() => setActiveTab('PROVIDERS')}
+                                className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center transition-all cursor-pointer ${activeTab === 'PROVIDERS' ? 'bg-white dark:bg-slate-700 text-emerald-705 dark:text-emerald-450 shadow-sm border border-slate-200/50 dark:border-slate-600/50' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700/30'}`}
+                            >
+                                <Building2 className="w-4 h-4 mr-2" /> Proveedores
+                            </button>
                         </div>
 
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                            <input
-                                type="text"
-                                placeholder="Buscar por concepto, proveedor o desc..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="pl-9 pr-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-sm outline-none focus:ring-2 focus:ring-rose-500 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 w-64"
-                            />
-                        </div>
+                        {activeTab !== 'PROVIDERS' && (
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                                <input
+                                    type="text"
+                                    placeholder="Buscar por concepto, proveedor o desc..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="pl-9 pr-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-sm outline-none focus:ring-2 focus:ring-rose-500 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 w-64"
+                                />
+                            </div>
+                        )}
                     </div>
 
                     {activeTab === 'HISTORY' && (
@@ -158,84 +248,189 @@ export default function ExpenseManager({ initialExpenses, role }: { initialExpen
                     )}
                 </div>
 
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                        <thead>
-                            <tr className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
-                                <th className="p-4 font-semibold text-slate-600 dark:text-slate-400">Fecha</th>
-                                <th className="p-4 font-semibold text-slate-600 dark:text-slate-400">Concepto</th>
-                                <th className="p-4 font-semibold text-slate-600 dark:text-slate-400">Proveedor</th>
-                                <th className="p-4 font-semibold text-slate-600 dark:text-slate-400">Descripción</th>
-                                <th className="p-4 font-semibold text-slate-600 dark:text-slate-400">Base</th>
-                                <th className="p-4 font-semibold text-slate-600 dark:text-slate-400">IVA</th>
-                                <th className="p-4 font-semibold text-slate-600 dark:text-slate-400">Total Pagado</th>
-                                {role === 'ADMIN' && <th className="p-4 font-semibold text-slate-600 dark:text-slate-400 text-right">Acciones</th>}
-                            </tr>
-                        </thead>
-                        <tbody className={isPending ? 'opacity-50 pointer-events-none' : ''}>
-                            {filteredExpenses.length === 0 ? (
-                                <tr><td colSpan={role === 'ADMIN' ? 8 : 7} className="p-8 text-center text-slate-500 dark:text-slate-400">No se encontraron gastos.</td></tr>
-                            ) : filteredExpenses.map((expense: any) => (
-                                <tr key={expense.id} className="border-b border-slate-100 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                    <td className="p-4 text-slate-500 dark:text-slate-400 text-sm">{new Date(expense.date).toLocaleDateString()}</td>
-                                    <td className="p-4 font-medium text-slate-800 dark:text-slate-200">{expense.name}</td>
-                                    <td className="p-4 text-slate-600 dark:text-slate-400 text-sm">{expense.provider || '-'}</td>
-                                    <td className="p-4 text-slate-600 dark:text-slate-400 text-sm">{expense.description || '-'}</td>
-                                    <td className="p-4 text-slate-700 dark:text-slate-300 font-medium">
-                                        {formatCurrency(expense.hasIva ? (expense.baseAmount || (expense.amount / 1.19)) : expense.amount)}
-                                    </td>
-                                    <td className="p-4 text-slate-500 dark:text-slate-400 text-sm">
-                                        {expense.hasIva ? formatCurrency(expense.ivaAmount || (expense.amount - (expense.amount / 1.19))) : '-'}
-                                    </td>
-                                    <td className="p-4">
-                                        <div className="font-bold text-rose-600 dark:text-rose-400">{formatCurrency(expense.amount)}</div>
-                                    </td>
-                                    {role === 'ADMIN' && (
-                                        <td className="p-4 text-right flex items-center justify-end gap-1">
-                                            {expense.receiptUrl ? (
-                                                <div className="flex items-center gap-1 border-r border-slate-200 dark:border-slate-700 pr-2 mr-1">
-                                                    <a href={expense.receiptUrl} target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:text-emerald-700 p-2 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-lg transition-colors" title="Ver Recibo">
-                                                        <Eye size={18} />
-                                                    </a>
+                {activeTab === 'PROVIDERS' ? (
+                    <div className="p-6 animate-in fade-in duration-200">
+                        {initialProviders.length === 0 ? (
+                            <div className="text-center py-12 text-slate-500 dark:text-slate-400">
+                                <Building2 size={48} className="mx-auto mb-3 text-slate-300 dark:text-slate-700" />
+                                <p className="text-lg font-medium">No hay proveedores registrados</p>
+                                <p className="text-sm">Comienza creando uno para asociar sus servicios recurrentes.</p>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {initialProviders.map((prov: any) => (
+                                    <div key={prov.id} className="bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
+                                        <div>
+                                            <div className="flex justify-between items-start mb-4">
+                                                <div>
+                                                    <h4 className="font-bold text-slate-800 dark:text-slate-100 text-lg flex items-center gap-2">
+                                                        <Building2 size={20} className="text-blue-500" />
+                                                        {prov.name}
+                                                    </h4>
+                                                    {prov.nit && (
+                                                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">NIT: {prov.nit}</p>
+                                                    )}
+                                                </div>
+                                                <div className="flex items-center gap-1">
                                                     <button onClick={() => {
-                                                        if(confirm('¿Seguro que deseas eliminar este recibo?')) {
-                                                            handleAction(() => deleteExpenseReceipt(expense.id, expense.receiptUrl));
+                                                        setSelectedProvider(prov);
+                                                        setProviderName(prov.name);
+                                                        setProviderNit(prov.nit || '');
+                                                        setIsProviderModalOpen(true);
+                                                    }} className="text-slate-500 hover:text-blue-600 p-1.5 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors cursor-pointer" title="Editar Proveedor">
+                                                        <Pencil size={16} />
+                                                    </button>
+                                                    <button onClick={() => {
+                                                        if (confirm(`¿ELIMINAR el proveedor "${prov.name}"? Se borrarán todos sus servicios asociados.`)) {
+                                                            handleAction(() => deleteProvider(prov.id));
                                                         }
-                                                    }} className="text-slate-400 hover:text-rose-600 p-2 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-lg transition-colors" title="Eliminar Recibo">
+                                                    }} className="text-slate-500 hover:text-rose-600 p-1.5 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-lg transition-colors cursor-pointer" title="Eliminar Proveedor">
                                                         <Trash2 size={16} />
                                                     </button>
                                                 </div>
-                                            ) : (
-                                                <button onClick={() => {
-                                                    setIsUploadingForExpenseId(expense.id);
-                                                    uploadExpenseIdRef.current = expense.id;
-                                                    setTimeout(() => fileInputRef.current?.click(), 0);
-                                                }} className="text-slate-500 hover:text-blue-600 p-2 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors mr-1" title="Subir Recibo">
-                                                    <FileUp size={18} />
-                                                </button>
-                                            )}
-                                            <button onClick={() => {
-                                                setSelectedExpense(expense);
-                                                setExpenseAmountEdit(expense.amount);
-                                                setHasIvaEdit(expense.hasIva || false);
-                                                setIsEditModalOpen(true);
-                                            }} className="text-blue-500 hover:text-blue-700 p-2 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors" title="Editar">
-                                                <Pencil size={18} />
-                                            </button>
-                                            <button onClick={() => {
-                                                if(confirm('¿ELIMINAR este gasto? Esta acción no se puede deshacer.')) {
-                                                    handleAction(() => deleteExpense(expense.id));
-                                                }
-                                            }} className="text-rose-500 hover:text-rose-700 p-2 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-lg transition-colors" title="Eliminar">
-                                                <Trash2 size={18} />
-                                            </button>
-                                        </td>
-                                    )}
+                                            </div>
+
+                                            <div className="space-y-2 mb-6 border-t border-slate-200 dark:border-slate-800 pt-3">
+                                                <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">Servicios Registrados</p>
+                                                {prov.services.length === 0 ? (
+                                                    <p className="text-sm text-slate-500 dark:text-slate-400 italic">No hay servicios.</p>
+                                                ) : (
+                                                    prov.services.map((svc: any) => (
+                                                        <div key={svc.id} className="flex justify-between items-center bg-white dark:bg-slate-900/60 p-2.5 rounded-lg border border-slate-100 dark:border-slate-800/80 text-sm mb-2 shadow-sm">
+                                                            <div className="flex-1 min-w-0 pr-2">
+                                                                <p className="font-semibold text-slate-800 dark:text-slate-250 truncate">{svc.name}</p>
+                                                                {svc.description && (
+                                                                    <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{svc.description}</p>
+                                                                )}
+                                                                <div className="flex items-center gap-1.5 mt-1">
+                                                                    <span className="font-bold text-rose-600 dark:text-rose-400">{formatCurrency(svc.amount)}</span>
+                                                                    {svc.hasIva && (
+                                                                        <span className="text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 px-1.5 py-0.5 rounded border border-indigo-200 dark:border-indigo-900">IVA Inc.</span>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex items-center gap-1 shrink-0">
+                                                                <button onClick={() => {
+                                                                    setSelectedProviderForService(prov);
+                                                                    setSelectedService(svc);
+                                                                    setServiceName(svc.name);
+                                                                    setServiceAmount(svc.amount);
+                                                                    setServiceDescription(svc.description || '');
+                                                                    setServiceHasIva(svc.hasIva);
+                                                                    setIsServiceModalOpen(true);
+                                                                }} className="text-slate-450 hover:text-blue-600 p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-colors cursor-pointer">
+                                                                    <Pencil size={14} />
+                                                                </button>
+                                                                <button onClick={() => {
+                                                                    if (confirm(`¿Eliminar el servicio "${svc.name}" del proveedor "${prov.name}"?`)) {
+                                                                        handleAction(() => deleteProviderService(svc.id));
+                                                                    }
+                                                                }} className="text-slate-450 hover:text-rose-600 p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-colors cursor-pointer">
+                                                                    <Trash2 size={14} />
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    ))
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <button onClick={() => {
+                                            setSelectedProviderForService(prov);
+                                            setSelectedService(null);
+                                            setServiceName('');
+                                            setServiceAmount('');
+                                            setServiceDescription('');
+                                            setServiceHasIva(false);
+                                            setIsServiceModalOpen(true);
+                                        }} className="w-full text-center text-xs font-semibold py-2 rounded-lg border border-dashed border-slate-300 dark:border-slate-700 text-slate-500 hover:text-blue-600 hover:border-blue-500 transition-colors flex items-center justify-center gap-1.5 cursor-pointer">
+                                            <Plus size={14} /> Agregar Servicio
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
+                                    <th className="p-4 font-semibold text-slate-600 dark:text-slate-400">Fecha</th>
+                                    <th className="p-4 font-semibold text-slate-600 dark:text-slate-400">Concepto</th>
+                                    <th className="p-4 font-semibold text-slate-600 dark:text-slate-400">Proveedor</th>
+                                    <th className="p-4 font-semibold text-slate-600 dark:text-slate-400">Descripción</th>
+                                    <th className="p-4 font-semibold text-slate-600 dark:text-slate-400">Base</th>
+                                    <th className="p-4 font-semibold text-slate-600 dark:text-slate-400">IVA</th>
+                                    <th className="p-4 font-semibold text-slate-600 dark:text-slate-400">Total Pagado</th>
+                                    {role === 'ADMIN' && <th className="p-4 font-semibold text-slate-600 dark:text-slate-400 text-right">Acciones</th>}
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+                            </thead>
+                            <tbody className={isPending ? 'opacity-50 pointer-events-none' : ''}>
+                                {filteredExpenses.length === 0 ? (
+                                    <tr><td colSpan={role === 'ADMIN' ? 8 : 7} className="p-8 text-center text-slate-500 dark:text-slate-400">No se encontraron gastos.</td></tr>
+                                ) : filteredExpenses.map((expense: any) => (
+                                    <tr key={expense.id} className="border-b border-slate-100 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                        <td className="p-4 text-slate-500 dark:text-slate-400 text-sm">{new Date(expense.date).toLocaleDateString()}</td>
+                                        <td className="p-4 font-medium text-slate-800 dark:text-slate-200">{expense.name}</td>
+                                        <td className="p-4 text-slate-600 dark:text-slate-400 text-sm">{expense.provider || '-'}</td>
+                                        <td className="p-4 text-slate-600 dark:text-slate-400 text-sm">{expense.description || '-'}</td>
+                                        <td className="p-4 text-slate-700 dark:text-slate-300 font-medium">
+                                            {formatCurrency(expense.hasIva ? (expense.baseAmount || (expense.amount / 1.19)) : expense.amount)}
+                                        </td>
+                                        <td className="p-4 text-slate-500 dark:text-slate-400 text-sm">
+                                            {expense.hasIva ? formatCurrency(expense.ivaAmount || (expense.amount - (expense.amount / 1.19))) : '-'}
+                                        </td>
+                                        <td className="p-4">
+                                            <div className="font-bold text-rose-600 dark:text-rose-400">{formatCurrency(expense.amount)}</div>
+                                        </td>
+                                        {role === 'ADMIN' && (
+                                            <td className="p-4 text-right flex items-center justify-end gap-1">
+                                                {expense.receiptUrl ? (
+                                                    <div className="flex items-center gap-1 border-r border-slate-200 dark:border-slate-700 pr-2 mr-1">
+                                                        <a href={expense.receiptUrl} target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:text-emerald-700 p-2 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-lg transition-colors" title="Ver Recibo">
+                                                            <Eye size={18} />
+                                                        </a>
+                                                        <button onClick={() => {
+                                                            if(confirm('¿Seguro que deseas eliminar este recibo?')) {
+                                                                handleAction(() => deleteExpenseReceipt(expense.id, expense.receiptUrl));
+                                                            }
+                                                        }} className="text-slate-400 hover:text-rose-600 p-2 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-lg transition-colors cursor-pointer" title="Eliminar Recibo">
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <button onClick={() => {
+                                                        setIsUploadingForExpenseId(expense.id);
+                                                        uploadExpenseIdRef.current = expense.id;
+                                                        setTimeout(() => fileInputRef.current?.click(), 0);
+                                                    }} className="text-slate-500 hover:text-blue-600 p-2 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors mr-1 cursor-pointer" title="Subir Recibo">
+                                                        <FileUp size={18} />
+                                                    </button>
+                                                )}
+                                                <button onClick={() => {
+                                                    setSelectedExpense(expense);
+                                                    setExpenseAmountEdit(expense.amount);
+                                                    setHasIvaEdit(expense.hasIva || false);
+                                                    setIsEditModalOpen(true);
+                                                }} className="text-blue-500 hover:text-blue-700 p-2 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors cursor-pointer" title="Editar">
+                                                    <Pencil size={18} />
+                                                </button>
+                                                <button onClick={() => {
+                                                    if(confirm('¿ELIMINAR este gasto? Esta acción no se puede deshacer.')) {
+                                                        handleAction(() => deleteExpense(expense.id));
+                                                    }
+                                                }} className="text-rose-500 hover:text-rose-700 p-2 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-lg transition-colors cursor-pointer" title="Eliminar">
+                                                    <Trash2 size={18} />
+                                                </button>
+                                            </td>
+                                        )}
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
             </div>
 
             {/* MODAL EDICIÓN DE GASTO */}
@@ -344,9 +539,9 @@ export default function ExpenseManager({ initialExpenses, role }: { initialExpen
 
                             handleAction(
                                 () => addExpense({
-                                    name: form.expenseName.value,
-                                    provider: form.provider.value || undefined,
-                                    description: form.description.value || undefined,
+                                    name: expenseNameAdd,
+                                    provider: providerNameAdd || undefined,
+                                    description: descriptionAdd || undefined,
                                     amount: Number(expenseAmountAdd),
                                     hasIva: hasIvaAdd,
                                     baseAmount: tBaseAdd,
@@ -355,17 +550,73 @@ export default function ExpenseManager({ initialExpenses, role }: { initialExpen
                                 () => setIsAddModalOpen(false)
                             );
                         }} className="space-y-4">
+                            {initialProviders.length > 0 && (
+                                <div className="bg-slate-50 dark:bg-slate-850 p-4 rounded-xl border border-slate-200 dark:border-slate-800 mb-4 space-y-3">
+                                    <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Pre-llenar con servicio recurrente</p>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="block text-xs font-medium text-slate-650 dark:text-slate-400 mb-1">Seleccionar Proveedor</label>
+                                            <select 
+                                                value={selectedProviderIdAdd}
+                                                onChange={(e) => {
+                                                    const provId = e.target.value ? Number(e.target.value) : '';
+                                                    setSelectedProviderIdAdd(provId);
+                                                    setSelectedServiceIdAdd('');
+                                                }}
+                                                className="w-full rounded-lg border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border p-2 text-xs outline-none focus:ring-2 focus:ring-blue-500"
+                                            >
+                                                <option value="">-- Seleccionar --</option>
+                                                {initialProviders.map((p: any) => (
+                                                    <option key={p.id} value={p.id}>{p.name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-slate-650 dark:text-slate-400 mb-1">Seleccionar Servicio</label>
+                                            <select 
+                                                value={selectedServiceIdAdd}
+                                                disabled={!selectedProviderIdAdd}
+                                                onChange={(e) => {
+                                                    const svcId = e.target.value ? Number(e.target.value) : '';
+                                                    setSelectedServiceIdAdd(svcId);
+                                                    if (svcId) {
+                                                        const prov = initialProviders.find((p: any) => p.id === selectedProviderIdAdd);
+                                                        const svc = prov?.services.find((s: any) => s.id === svcId);
+                                                        if (svc && prov) {
+                                                            setExpenseNameAdd(svc.name);
+                                                            setProviderNameAdd(prov.name);
+                                                            setDescriptionAdd(svc.description || '');
+                                                            setExpenseAmountAdd(svc.amount);
+                                                            setHasIvaAdd(svc.hasIva);
+                                                        }
+                                                    }
+                                                }}
+                                                className="w-full rounded-lg border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border p-2 text-xs outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                                            >
+                                                <option value="">-- Seleccionar --</option>
+                                                {selectedProviderIdAdd && initialProviders
+                                                    .find((p: any) => p.id === selectedProviderIdAdd)
+                                                    ?.services.map((s: any) => (
+                                                        <option key={s.id} value={s.id}>{s.name} ({formatCurrency(s.amount)})</option>
+                                                    ))
+                                                }
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Concepto</label>
-                                <input required type="text" name="expenseName" placeholder="Ej. Luz, Internet..." className="w-full rounded-lg border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border p-2.5 focus:ring-2 focus:ring-blue-500 outline-none" disabled={isPending} />
+                                <input required type="text" name="expenseName" value={expenseNameAdd} onChange={(e) => setExpenseNameAdd(e.target.value)} placeholder="Ej. Luz, Internet..." className="w-full rounded-lg border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border p-2.5 focus:ring-2 focus:ring-blue-500 outline-none" disabled={isPending} />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Proveedor (Opcional)</label>
-                                <input type="text" name="provider" placeholder="Nombre de la empresa o proveedor" className="w-full rounded-lg border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border p-2.5 focus:ring-2 focus:ring-blue-500 outline-none" disabled={isPending} />
+                                <input type="text" name="provider" value={providerNameAdd} onChange={(e) => setProviderNameAdd(e.target.value)} placeholder="Nombre de la empresa o proveedor" className="w-full rounded-lg border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border p-2.5 focus:ring-2 focus:ring-blue-500 outline-none" disabled={isPending} />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Descripción</label>
-                                <input type="text" name="description" placeholder="Anotaciones extra" className="w-full rounded-lg border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border p-2.5 focus:ring-2 focus:ring-blue-500 outline-none" disabled={isPending} />
+                                <input type="text" name="description" value={descriptionAdd} onChange={(e) => setDescriptionAdd(e.target.value)} placeholder="Anotaciones extra" className="w-full rounded-lg border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border p-2.5 focus:ring-2 focus:ring-blue-500 outline-none" disabled={isPending} />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Monto Total Pagado ($)</label>
@@ -407,6 +658,127 @@ export default function ExpenseManager({ initialExpenses, role }: { initialExpen
                                 </button>
                                 <button type="submit" disabled={isPending} className="bg-rose-600 hover:bg-rose-700 text-white px-6 py-2 rounded-lg font-medium flex items-center transition-colors disabled:opacity-50">
                                     Registrar Gasto
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+            {/* MODAL CREAR / EDITAR PROVEEDOR */}
+            {isProviderModalOpen && (
+                <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                    <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-200">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100">
+                                {selectedProvider ? 'Editar Proveedor' : 'Crear Nuevo Proveedor'}
+                            </h3>
+                            <button onClick={() => setIsProviderModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-1 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                                <X size={24} />
+                            </button>
+                        </div>
+                        <form onSubmit={(e) => {
+                            e.preventDefault();
+                            if (selectedProvider) {
+                                handleAction(
+                                    () => updateProvider(selectedProvider.id, { name: providerName, nit: providerNit }),
+                                    () => setIsProviderModalOpen(false)
+                                );
+                            } else {
+                                handleAction(
+                                    () => addProvider({ name: providerName, nit: providerNit }),
+                                    () => setIsProviderModalOpen(false)
+                                );
+                            }
+                        }} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Nombre del Proveedor</label>
+                                <input required type="text" value={providerName} onChange={(e) => setProviderName(e.target.value)} placeholder="Ej. Claro, EPM, AWS..." className="w-full rounded-lg border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border p-2.5 focus:ring-2 focus:ring-blue-500 outline-none" disabled={isPending} />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">NIT / Identificación (Opcional)</label>
+                                <input type="text" value={providerNit} onChange={(e) => setProviderNit(e.target.value)} placeholder="Ej. 800123456-7" className="w-full rounded-lg border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border p-2.5 focus:ring-2 focus:ring-blue-500 outline-none" disabled={isPending} />
+                            </div>
+                            <div className="flex justify-end gap-3 mt-6">
+                                <button type="button" onClick={() => setIsProviderModalOpen(false)} className="px-4 py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg font-medium transition-colors cursor-pointer" disabled={isPending}>
+                                    Cancelar
+                                </button>
+                                <button type="submit" disabled={isPending} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium flex items-center transition-colors disabled:opacity-50 cursor-pointer">
+                                    {selectedProvider ? 'Guardar Cambios' : 'Crear Proveedor'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* MODAL CREAR / EDITAR SERVICIO DE PROVEEDOR */}
+            {isServiceModalOpen && selectedProviderForService && (
+                <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                    <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-200">
+                        <div className="flex justify-between items-center mb-6">
+                            <div>
+                                <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100">
+                                    {selectedService ? 'Editar Servicio' : 'Agregar Servicio'}
+                                </h3>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Proveedor: {selectedProviderForService.name}</p>
+                            </div>
+                            <button onClick={() => setIsServiceModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-1 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                                <X size={24} />
+                            </button>
+                        </div>
+                        <form onSubmit={(e) => {
+                            e.preventDefault();
+                            if (selectedService) {
+                                handleAction(
+                                    () => updateProviderService(selectedService.id, {
+                                        name: serviceName,
+                                        amount: Number(serviceAmount),
+                                        description: serviceDescription,
+                                        hasIva: serviceHasIva
+                                    }),
+                                    () => setIsServiceModalOpen(false)
+                                );
+                            } else {
+                                handleAction(
+                                    () => addProviderService({
+                                        providerId: selectedProviderForService.id,
+                                        name: serviceName,
+                                        amount: Number(serviceAmount),
+                                        description: serviceDescription,
+                                        hasIva: serviceHasIva
+                                    }),
+                                    () => setIsServiceModalOpen(false)
+                                );
+                            }
+                        }} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Nombre del Servicio (Concepto)</label>
+                                <input required type="text" value={serviceName} onChange={(e) => setServiceName(e.target.value)} placeholder="Ej. Plan Internet 300MB, Arriendo..." className="w-full rounded-lg border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border p-2.5 focus:ring-2 focus:ring-blue-500 outline-none" disabled={isPending} />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Monto de Gasto ($)</label>
+                                <input required type="number" value={serviceAmount} onChange={(e) => setServiceAmount(e.target.value ? Number(e.target.value) : '')} placeholder="0.00" min="0" step="any" className="w-full rounded-lg border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border p-2.5 focus:ring-2 focus:ring-blue-500 outline-none" disabled={isPending} />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Descripción / Observaciones</label>
+                                <input type="text" value={serviceDescription} onChange={(e) => setServiceDescription(e.target.value)} placeholder="Anotaciones extra para el gasto" className="w-full rounded-lg border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border p-2.5 focus:ring-2 focus:ring-blue-500 outline-none" disabled={isPending} />
+                            </div>
+                            <div className="flex items-center gap-3 pt-2">
+                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">¿El monto del servicio incluye IVA?</label>
+                                <button 
+                                    type="button"
+                                    onClick={() => setServiceHasIva(!serviceHasIva)}
+                                    className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-sm ${serviceHasIva ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300 ring-1 ring-indigo-400' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
+                                >
+                                    {serviceHasIva ? 'Sí, incluye IVA (19%)' : 'No incluye IVA'}
+                                </button>
+                            </div>
+                            <div className="flex justify-end gap-3 mt-6">
+                                <button type="button" onClick={() => setIsServiceModalOpen(false)} className="px-4 py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg font-medium transition-colors cursor-pointer" disabled={isPending}>
+                                    Cancelar
+                                </button>
+                                <button type="submit" disabled={isPending} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium flex items-center transition-colors disabled:opacity-50 cursor-pointer">
+                                    {selectedService ? 'Guardar Cambios' : 'Agregar Servicio'}
                                 </button>
                             </div>
                         </form>
