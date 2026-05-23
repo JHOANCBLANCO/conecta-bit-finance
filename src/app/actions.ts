@@ -792,17 +792,34 @@ export async function getExpenses() {
     return prisma.expense.findMany({ orderBy: { id: "desc" } });
 }
 
-export async function addExpense(data: { name: string; description?: string; amount: number; provider?: string; hasIva?: boolean; baseAmount?: number; ivaAmount?: number }) {
+export async function addExpense(data: { name: string; description?: string; amount: number; provider?: string; hasIva?: boolean; baseAmount?: number; ivaAmount?: number; date?: string }) {
     await requireAuth();
-    const expense = await prisma.expense.create({ data });
+    const expense = await prisma.expense.create({
+        data: {
+            name: data.name,
+            description: data.description,
+            amount: data.amount,
+            provider: data.provider,
+            hasIva: data.hasIva,
+            baseAmount: data.baseAmount,
+            ivaAmount: data.ivaAmount,
+            date: data.date ? new Date(data.date) : undefined
+        }
+    });
     revalidatePath("/gastos");
     revalidatePath("/");
     return expense;
 }
 
-export async function updateExpense(id: number, data: { name: string; description?: string; amount: number; provider?: string; hasIva?: boolean; baseAmount?: number; ivaAmount?: number }) {
+export async function updateExpense(id: number, data: { name: string; description?: string; amount: number; provider?: string; hasIva?: boolean; baseAmount?: number; ivaAmount?: number; date?: string }) {
     await requireAdmin();
-    const expense = await prisma.expense.update({ where: { id }, data });
+    const updateData: any = { ...data };
+    if (data.date) {
+        updateData.date = new Date(data.date);
+    } else {
+        delete updateData.date;
+    }
+    const expense = await prisma.expense.update({ where: { id }, data: updateData });
     revalidatePath("/gastos");
     revalidatePath("/");
     return expense;

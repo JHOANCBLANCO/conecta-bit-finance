@@ -40,10 +40,12 @@ export default function ExpenseManager({
     const [expenseNameAdd, setExpenseNameAdd] = useState('');
     const [providerNameAdd, setProviderNameAdd] = useState('');
     const [descriptionAdd, setDescriptionAdd] = useState('');
+    const [expenseDateAdd, setExpenseDateAdd] = useState(new Date().toISOString().split('T')[0]);
 
     // States for EDIT Modal
     const [expenseAmountEdit, setExpenseAmountEdit] = useState<number | ''>('');
     const [hasIvaEdit, setHasIvaEdit] = useState(false);
+    const [expenseDateEdit, setExpenseDateEdit] = useState('');
 
     // States for Provider Management
     const [isProviderModalOpen, setIsProviderModalOpen] = useState(false);
@@ -251,6 +253,7 @@ export default function ExpenseManager({
                                     setHasIvaAdd(false);
                                     setSelectedProviderIdAdd('');
                                     setSelectedServiceIdAdd('');
+                                    setExpenseDateAdd(new Date().toISOString().split('T')[0]);
                                     setIsAddModalOpen(true);
                                 }} className="bg-rose-600 hover:bg-rose-700 text-white px-6 py-2.5 rounded-lg font-medium flex items-center justify-center transition-colors shadow-sm whitespace-nowrap cursor-pointer">
                                     <Plus size={20} className="mr-2" /> Registrar Gasto
@@ -601,6 +604,7 @@ export default function ExpenseManager({
                                                     setSelectedExpense(expense);
                                                     setExpenseAmountEdit(expense.amount);
                                                     setHasIvaEdit(expense.hasIva || false);
+                                                    setExpenseDateEdit(expense.date ? new Date(expense.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
                                                     setIsEditModalOpen(true);
                                                 }} className="text-blue-500 hover:text-blue-700 p-2 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors cursor-pointer" title="Editar">
                                                     <Pencil size={18} />
@@ -646,14 +650,21 @@ export default function ExpenseManager({
                                     amount: Number(expenseAmountEdit),
                                     hasIva: hasIvaEdit,
                                     baseAmount: tBaseEdit,
-                                    ivaAmount: tIvaEdit
+                                    ivaAmount: tIvaEdit,
+                                    date: expenseDateEdit
                                 }),
                                 () => { setIsEditModalOpen(false); setSelectedExpense(null); }
                             );
                         }} className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Concepto</label>
-                                <input required type="text" name="expenseName" defaultValue={selectedExpense.name} className="w-full rounded-lg border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border p-2.5 focus:ring-2 focus:ring-blue-500 outline-none" disabled={isPending} />
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Concepto</label>
+                                    <input required type="text" name="expenseName" defaultValue={selectedExpense.name} className="w-full rounded-lg border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border p-2.5 focus:ring-2 focus:ring-blue-500 outline-none" disabled={isPending} />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Fecha del Gasto</label>
+                                    <input required type="date" name="expenseDate" value={expenseDateEdit} onChange={(e) => setExpenseDateEdit(e.target.value)} className="w-full rounded-lg border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border p-2.5 focus:ring-2 focus:ring-blue-500 outline-none [color-scheme:light] dark:[color-scheme:dark]" disabled={isPending} />
+                                </div>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Proveedor (Opcional)</label>
@@ -734,7 +745,8 @@ export default function ExpenseManager({
                                     amount: Number(expenseAmountAdd),
                                     hasIva: hasIvaAdd,
                                     baseAmount: tBaseAdd,
-                                    ivaAmount: tIvaAdd
+                                    ivaAmount: tIvaAdd,
+                                    date: expenseDateAdd
                                 }),
                                 () => setIsAddModalOpen(false)
                             );
@@ -795,9 +807,15 @@ export default function ExpenseManager({
                                 </div>
                             )}
 
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Concepto</label>
-                                <input required type="text" name="expenseName" value={expenseNameAdd} onChange={(e) => setExpenseNameAdd(e.target.value)} placeholder="Ej. Luz, Internet..." className="w-full rounded-lg border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border p-2.5 focus:ring-2 focus:ring-blue-500 outline-none" disabled={isPending} />
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Concepto</label>
+                                    <input required type="text" name="expenseName" value={expenseNameAdd} onChange={(e) => setExpenseNameAdd(e.target.value)} placeholder="Ej. Luz, Internet..." className="w-full rounded-lg border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border p-2.5 focus:ring-2 focus:ring-blue-500 outline-none" disabled={isPending} />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Fecha del Gasto</label>
+                                    <input required type="date" name="expenseDate" value={expenseDateAdd} onChange={(e) => setExpenseDateAdd(e.target.value)} className="w-full rounded-lg border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border p-2.5 focus:ring-2 focus:ring-blue-500 outline-none [color-scheme:light] dark:[color-scheme:dark]" disabled={isPending} />
+                                </div>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Proveedor (Opcional)</label>
