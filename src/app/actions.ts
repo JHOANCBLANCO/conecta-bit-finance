@@ -795,6 +795,7 @@ export async function getExpenses() {
 export async function addExpense(data: { name: string; description?: string; amount: number; provider?: string; hasIva?: boolean; baseAmount?: number; ivaAmount?: number }) {
     await requireAuth();
     const expense = await prisma.expense.create({ data });
+    revalidatePath("/gastos");
     revalidatePath("/");
     return expense;
 }
@@ -802,6 +803,7 @@ export async function addExpense(data: { name: string; description?: string; amo
 export async function updateExpense(id: number, data: { name: string; description?: string; amount: number; provider?: string; hasIva?: boolean; baseAmount?: number; ivaAmount?: number }) {
     await requireAdmin();
     const expense = await prisma.expense.update({ where: { id }, data });
+    revalidatePath("/gastos");
     revalidatePath("/");
     return expense;
 }
@@ -809,6 +811,7 @@ export async function updateExpense(id: number, data: { name: string; descriptio
 export async function deleteExpense(id: number) {
     await requireAdmin();
     await prisma.expense.delete({ where: { id } });
+    revalidatePath("/gastos");
     revalidatePath("/");
 }
 
@@ -837,6 +840,7 @@ export async function uploadExpenseReceipt(expenseId: number, formData: FormData
         where: { id: expenseId },
         data: { receiptUrl: fileUrl }
     });
+    revalidatePath("/gastos");
     revalidatePath("/");
     return expense;
 }
@@ -857,6 +861,7 @@ export async function deleteExpenseReceipt(expenseId: number, currentFileUrl: st
         where: { id: expenseId },
         data: { receiptUrl: null }
     });
+    revalidatePath("/gastos");
     revalidatePath("/");
     return expense;
 }
@@ -878,6 +883,7 @@ export async function addProvider(data: { name: string; nit?: string }) {
     const provider = await prisma.provider.create({
         data: { name: cleanName, nit: data.nit || null }
     });
+    revalidatePath("/gastos");
     revalidatePath("/");
     return provider;
 }
@@ -889,6 +895,7 @@ export async function updateProvider(id: number, data: { name: string; nit?: str
         where: { id },
         data: { name: cleanName, nit: data.nit || null }
     });
+    revalidatePath("/gastos");
     revalidatePath("/");
     return provider;
 }
@@ -896,6 +903,7 @@ export async function updateProvider(id: number, data: { name: string; nit?: str
 export async function deleteProvider(id: number) {
     await requireAdmin();
     await prisma.provider.delete({ where: { id } });
+    revalidatePath("/gastos");
     revalidatePath("/");
 }
 
@@ -911,6 +919,7 @@ export async function addProviderService(data: { providerId: number; name: strin
             hasIva: data.hasIva
         }
     });
+    revalidatePath("/gastos");
     revalidatePath("/");
     return service;
 }
@@ -927,6 +936,7 @@ export async function updateProviderService(id: number, data: { name: string; am
             hasIva: data.hasIva
         }
     });
+    revalidatePath("/gastos");
     revalidatePath("/");
     return service;
 }
@@ -934,6 +944,7 @@ export async function updateProviderService(id: number, data: { name: string; am
 export async function deleteProviderService(id: number) {
     await requireAdmin();
     await prisma.providerService.delete({ where: { id } });
+    revalidatePath("/gastos");
     revalidatePath("/");
 }
 
@@ -944,15 +955,15 @@ export async function copyExpensesFromPreviousMonth() {
     const currentYear = today.getFullYear();
     const currentMonth = today.getMonth(); // 0-indexed
 
-    // Calculate start and end of previous month
+    // Calculate start and end of previous month in UTC to be timezone-independent
     let prevYear = currentYear;
     let prevMonth = currentMonth - 1;
     if (prevMonth < 0) {
         prevMonth = 11;
         prevYear -= 1;
     }
-    const prevMonthStart = new Date(prevYear, prevMonth, 1, 0, 0, 0, 0);
-    const prevMonthEnd = new Date(prevYear, prevMonth + 1, 0, 23, 59, 59, 999);
+    const prevMonthStart = new Date(Date.UTC(prevYear, prevMonth, 1, 0, 0, 0, 0));
+    const prevMonthEnd = new Date(Date.UTC(prevYear, prevMonth + 1, 0, 23, 59, 59, 999));
 
     // Query expenses of previous month
     const oldExpenses = await prisma.expense.findMany({
@@ -971,11 +982,19 @@ export async function copyExpensesFromPreviousMonth() {
     // Map to current month
     const newExpensesData = oldExpenses.map(old => {
         const oldDate = new Date(old.date);
-        const oldDay = oldDate.getDate();
-        const maxDays = new Date(currentYear, currentMonth + 1, 0).getDate();
+        const oldDay = oldDate.getUTCDate(); // Use UTC date to avoid local offset shifts
+        const maxDays = new Date(Date.UTC(currentYear, currentMonth + 1, 0)).getUTCDate();
         const clampedDay = Math.min(oldDay, maxDays);
         
-        const newDate = new Date(currentYear, currentMonth, clampedDay, oldDate.getHours(), oldDate.getMinutes(), oldDate.getSeconds());
+        // Construct new date in UTC
+        const newDate = new Date(Date.UTC(
+            currentYear, 
+            currentMonth, 
+            clampedDay, 
+            oldDate.getUTCHours(), 
+            oldDate.getUTCMinutes(), 
+            oldDate.getUTCSeconds()
+        ));
 
         return {
             name: old.name,
@@ -995,6 +1014,7 @@ export async function copyExpensesFromPreviousMonth() {
         data: newExpensesData
     });
 
+    revalidatePath("/gastos");
     revalidatePath("/");
     return { count: newExpensesData.length };
 }

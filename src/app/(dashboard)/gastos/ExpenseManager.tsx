@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useTransition, useState } from 'react';
-import { Plus, Trash2, Pencil, X, Upload, Eye, FileUp, Download, Calendar, History, Search, Building2, Copy, AlertCircle } from 'lucide-react';
+import { Plus, Trash2, Pencil, X, Upload, Eye, FileUp, Download, Calendar, History, Search, Building2, Copy, AlertCircle, TrendingUp } from 'lucide-react';
 import { 
     addExpense, 
     deleteExpense, 
@@ -65,10 +65,13 @@ export default function ExpenseManager({
     const [selectedServiceIdAdd, setSelectedServiceIdAdd] = useState<number | ''>('');
 
     // States for Filtering
-    const [activeTab, setActiveTab] = useState<'MONTH' | 'HISTORY' | 'PROVIDERS'>('MONTH');
+    const [activeTab, setActiveTab] = useState<'MONTH' | 'HISTORY' | 'PROVIDERS' | 'REPORTS'>('MONTH');
     const [searchTerm, setSearchTerm] = useState('');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
+
+    // Sub-tab states for each provider card
+    const [providerSubTabs, setProviderSubTabs] = useState<{ [providerId: number]: 'SERVICES' | 'SPENDING' }>({});
 
 
     const filteredExpenses = initialExpenses.filter(expense => {
@@ -125,6 +128,79 @@ export default function ExpenseManager({
             minimumFractionDigits: hasDecimals ? 2 : 0, 
             maximumFractionDigits: hasDecimals ? 2 : 0 
         }).format(amount);
+    };
+
+    const getMonthlyExpensesForProvider = (providerName: string) => {
+        const matched = initialExpenses.filter(e => 
+            e.provider && e.provider.trim().toUpperCase() === providerName.trim().toUpperCase()
+        );
+        const groups: { [key: string]: number } = {};
+        matched.forEach(e => {
+            const d = new Date(e.date);
+            const year = d.getFullYear();
+            const month = d.getMonth();
+            const key = `${year}-${String(month + 1).padStart(2, '0')}`;
+            groups[key] = (groups[key] || 0) + e.amount;
+        });
+        return Object.entries(groups)
+            .map(([key, amount]) => {
+                const [year, month] = key.split('-');
+                const dateObj = new Date(Number(year), Number(month) - 1, 1);
+                const monthName = dateObj.toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
+                return {
+                    key,
+                    monthName: monthName.charAt(0).toUpperCase() + monthName.slice(1),
+                    amount
+                };
+            })
+            .sort((a, b) => b.key.localeCompare(a.key));
+    };
+
+    const getExpensesByMonthAndProvider = () => {
+        const dataMap: { [monthKey: string]: { [provider: string]: number } } = {};
+        
+        initialExpenses.forEach(expense => {
+            const dateObj = new Date(expense.date);
+            const year = dateObj.getFullYear();
+            const month = dateObj.getMonth();
+            const monthKey = `${year}-${String(month + 1).padStart(2, '0')}`;
+            
+            const providerName = (expense.provider || 'Sin Proveedor').trim().toUpperCase();
+            
+            if (!dataMap[monthKey]) {
+                dataMap[monthKey] = {};
+            }
+            
+            dataMap[monthKey][providerName] = (dataMap[monthKey][providerName] || 0) + expense.amount;
+        });
+
+        const sortedMonths = Object.keys(dataMap).sort((a, b) => b.localeCompare(a));
+        
+        return sortedMonths.map(monthKey => {
+            const [year, month] = monthKey.split('-');
+            const dateObj = new Date(Number(year), Number(month) - 1, 1);
+            const monthLabel = dateObj.toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
+            const capitalizedLabel = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
+            
+            let providers = Object.entries(dataMap[monthKey]).map(([name, total]) => ({
+                name,
+                total
+            })).sort((a, b) => b.total - a.total);
+
+            if (searchTerm) {
+                const term = searchTerm.toLowerCase();
+                providers = providers.filter(p => p.name.toLowerCase().includes(term));
+            }
+            
+            const monthTotal = providers.reduce((sum, p) => sum + p.total, 0);
+
+            return {
+                monthKey,
+                monthLabel: capitalizedLabel,
+                providers,
+                monthTotal
+            };
+        }).filter(m => m.providers.length > 0);
     };
 
     const handleCopyFromPreviousMonth = () => {
@@ -218,6 +294,13 @@ export default function ExpenseManager({
                             >
                                 <Building2 className="w-4 h-4 mr-2" /> Proveedores
                             </button>
+                            <button
+                                type="button"
+                                onClick={() => setActiveTab('REPORTS')}
+                                className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center transition-all cursor-pointer ${activeTab === 'REPORTS' ? 'bg-white dark:bg-slate-700 text-purple-700 dark:text-purple-450 shadow-sm border border-slate-200/50 dark:border-slate-600/50' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700/30'}`}
+                            >
+                                <TrendingUp className="w-4 h-4 mr-2" /> Resumen
+                            </button>
                         </div>
 
                         {activeTab !== 'PROVIDERS' && (
@@ -258,94 +341,197 @@ export default function ExpenseManager({
                             </div>
                         ) : (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {initialProviders.map((prov: any) => (
-                                    <div key={prov.id} className="bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
-                                        <div>
-                                            <div className="flex justify-between items-start mb-4">
-                                                <div>
-                                                    <h4 className="font-bold text-slate-800 dark:text-slate-100 text-lg flex items-center gap-2">
-                                                        <Building2 size={20} className="text-blue-500" />
-                                                        {prov.name}
-                                                    </h4>
-                                                    {prov.nit && (
-                                                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">NIT: {prov.nit}</p>
-                                                    )}
+                                {initialProviders.map((prov: any) => {
+                                    const currentSubTab = providerSubTabs[prov.id] || 'SERVICES';
+                                    const monthlySpending = getMonthlyExpensesForProvider(prov.name);
+                                    
+                                    return (
+                                        <div key={prov.id} className="bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
+                                            <div>
+                                                <div className="flex justify-between items-start mb-4">
+                                                    <div>
+                                                        <h4 className="font-bold text-slate-800 dark:text-slate-100 text-lg flex items-center gap-2">
+                                                            <Building2 size={20} className="text-blue-500" />
+                                                            {prov.name}
+                                                        </h4>
+                                                        {prov.nit && (
+                                                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">NIT: {prov.nit}</p>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex items-center gap-1">
+                                                        <button onClick={() => {
+                                                            setSelectedProvider(prov);
+                                                            setProviderName(prov.name);
+                                                            setProviderNit(prov.nit || '');
+                                                            setIsProviderModalOpen(true);
+                                                        }} className="text-slate-500 hover:text-blue-600 p-1.5 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors cursor-pointer" title="Editar Proveedor">
+                                                            <Pencil size={16} />
+                                                        </button>
+                                                        <button onClick={() => {
+                                                            if (confirm(`¿ELIMINAR el proveedor "${prov.name}"? Se borrarán todos sus servicios asociados.`)) {
+                                                                handleAction(() => deleteProvider(prov.id));
+                                                            }
+                                                        }} className="text-slate-500 hover:text-rose-600 p-1.5 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-lg transition-colors cursor-pointer" title="Eliminar Proveedor">
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                    </div>
                                                 </div>
-                                                <div className="flex items-center gap-1">
-                                                    <button onClick={() => {
-                                                        setSelectedProvider(prov);
-                                                        setProviderName(prov.name);
-                                                        setProviderNit(prov.nit || '');
-                                                        setIsProviderModalOpen(true);
-                                                    }} className="text-slate-500 hover:text-blue-600 p-1.5 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors cursor-pointer" title="Editar Proveedor">
-                                                        <Pencil size={16} />
-                                                    </button>
-                                                    <button onClick={() => {
-                                                        if (confirm(`¿ELIMINAR el proveedor "${prov.name}"? Se borrarán todos sus servicios asociados.`)) {
-                                                            handleAction(() => deleteProvider(prov.id));
-                                                        }
-                                                    }} className="text-slate-500 hover:text-rose-600 p-1.5 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-lg transition-colors cursor-pointer" title="Eliminar Proveedor">
-                                                        <Trash2 size={16} />
-                                                    </button>
-                                                </div>
-                                            </div>
 
-                                            <div className="space-y-2 mb-6 border-t border-slate-200 dark:border-slate-800 pt-3">
-                                                <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">Servicios Registrados</p>
-                                                {prov.services.length === 0 ? (
-                                                    <p className="text-sm text-slate-500 dark:text-slate-400 italic">No hay servicios.</p>
-                                                ) : (
-                                                    prov.services.map((svc: any) => (
-                                                        <div key={svc.id} className="flex justify-between items-center bg-white dark:bg-slate-900/60 p-2.5 rounded-lg border border-slate-100 dark:border-slate-800/80 text-sm mb-2 shadow-sm">
-                                                            <div className="flex-1 min-w-0 pr-2">
-                                                                <p className="font-semibold text-slate-800 dark:text-slate-250 truncate">{svc.name}</p>
-                                                                {svc.description && (
-                                                                    <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{svc.description}</p>
-                                                                )}
-                                                                <div className="flex items-center gap-1.5 mt-1">
-                                                                    <span className="font-bold text-rose-600 dark:text-rose-400">{formatCurrency(svc.amount)}</span>
-                                                                    {svc.hasIva && (
-                                                                        <span className="text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 px-1.5 py-0.5 rounded border border-indigo-200 dark:border-indigo-900">IVA Inc.</span>
-                                                                    )}
+                                                {/* Sub-tabs selector */}
+                                                <div className="flex border-b border-slate-200 dark:border-slate-800 mb-4">
+                                                    <button 
+                                                        type="button"
+                                                        onClick={() => setProviderSubTabs(prev => ({ ...prev, [prov.id]: 'SERVICES' }))}
+                                                        className={`flex-1 pb-2 text-xs font-bold uppercase tracking-wider text-center transition-colors cursor-pointer ${
+                                                            currentSubTab === 'SERVICES' 
+                                                                ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-450 font-extrabold' 
+                                                                : 'text-slate-400 hover:text-slate-650 dark:hover:text-slate-300'
+                                                        }`}
+                                                    >
+                                                        Servicios
+                                                    </button>
+                                                    <button 
+                                                        type="button"
+                                                        onClick={() => setProviderSubTabs(prev => ({ ...prev, [prov.id]: 'SPENDING' }))}
+                                                        className={`flex-1 pb-2 text-xs font-bold uppercase tracking-wider text-center transition-colors cursor-pointer ${
+                                                            currentSubTab === 'SPENDING' 
+                                                                ? 'border-b-2 border-purple-500 text-purple-600 dark:text-purple-400 font-extrabold' 
+                                                                : 'text-slate-400 hover:text-slate-650 dark:hover:text-slate-300'
+                                                        }`}
+                                                    >
+                                                        Historial Gastos
+                                                    </button>
+                                                </div>
+
+                                                {currentSubTab === 'SERVICES' ? (
+                                                    <div className="space-y-2 mb-6 pt-1">
+                                                        {prov.services.length === 0 ? (
+                                                            <p className="text-sm text-slate-500 dark:text-slate-400 italic">No hay servicios.</p>
+                                                        ) : (
+                                                            prov.services.map((svc: any) => (
+                                                                <div key={svc.id} className="flex justify-between items-center bg-white dark:bg-slate-900/60 p-2.5 rounded-lg border border-slate-100 dark:border-slate-800/80 text-sm mb-2 shadow-sm">
+                                                                    <div className="flex-1 min-w-0 pr-2">
+                                                                        <p className="font-semibold text-slate-800 dark:text-slate-250 truncate">{svc.name}</p>
+                                                                        {svc.description && (
+                                                                            <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{svc.description}</p>
+                                                                        )}
+                                                                        <div className="flex items-center gap-1.5 mt-1">
+                                                                            <span className="font-bold text-rose-600 dark:text-rose-400">{formatCurrency(svc.amount)}</span>
+                                                                            {svc.hasIva && (
+                                                                                <span className="text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 px-1.5 py-0.5 rounded border border-indigo-200 dark:border-indigo-900">IVA Inc.</span>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-1 shrink-0">
+                                                                        <button onClick={() => {
+                                                                            setSelectedProviderForService(prov);
+                                                                            setSelectedService(svc);
+                                                                            setServiceName(svc.name);
+                                                                            setServiceAmount(svc.amount);
+                                                                            setServiceDescription(svc.description || '');
+                                                                            setServiceHasIva(svc.hasIva);
+                                                                            setIsServiceModalOpen(true);
+                                                                        }} className="text-slate-450 hover:text-blue-600 p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-colors cursor-pointer">
+                                                                            <Pencil size={14} />
+                                                                        </button>
+                                                                        <button onClick={() => {
+                                                                            if (confirm(`¿Eliminar el servicio "${svc.name}" del proveedor "${prov.name}"?`)) {
+                                                                                handleAction(() => deleteProviderService(svc.id));
+                                                                            }
+                                                                        }} className="text-slate-450 hover:text-rose-600 p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-colors cursor-pointer">
+                                                                            <Trash2 size={14} />
+                                                                        </button>
+                                                                    </div>
                                                                 </div>
+                                                            ))
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <div className="space-y-2 mb-6 pt-1">
+                                                        {monthlySpending.length === 0 ? (
+                                                            <p className="text-sm text-slate-500 dark:text-slate-400 italic text-center py-4">No hay gastos registrados para este proveedor.</p>
+                                                        ) : (
+                                                            <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                                                                {monthlySpending.map((item) => (
+                                                                    <div key={item.key} className="flex justify-between items-center bg-white dark:bg-slate-900/60 p-2.5 rounded-lg border border-slate-100 dark:border-slate-800/80 text-sm shadow-sm">
+                                                                        <span className="font-medium text-slate-700 dark:text-slate-350">{item.monthName}</span>
+                                                                        <span className="font-bold text-rose-600 dark:text-rose-400">{formatCurrency(item.amount)}</span>
+                                                                    </div>
+                                                                ))}
                                                             </div>
-                                                            <div className="flex items-center gap-1 shrink-0">
-                                                                <button onClick={() => {
-                                                                    setSelectedProviderForService(prov);
-                                                                    setSelectedService(svc);
-                                                                    setServiceName(svc.name);
-                                                                    setServiceAmount(svc.amount);
-                                                                    setServiceDescription(svc.description || '');
-                                                                    setServiceHasIva(svc.hasIva);
-                                                                    setIsServiceModalOpen(true);
-                                                                }} className="text-slate-450 hover:text-blue-600 p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-colors cursor-pointer">
-                                                                    <Pencil size={14} />
-                                                                </button>
-                                                                <button onClick={() => {
-                                                                    if (confirm(`¿Eliminar el servicio "${svc.name}" del proveedor "${prov.name}"?`)) {
-                                                                        handleAction(() => deleteProviderService(svc.id));
-                                                                    }
-                                                                }} className="text-slate-450 hover:text-rose-600 p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-colors cursor-pointer">
-                                                                    <Trash2 size={14} />
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                    ))
+                                                        )}
+                                                    </div>
                                                 )}
                                             </div>
-                                        </div>
 
-                                        <button onClick={() => {
-                                            setSelectedProviderForService(prov);
-                                            setSelectedService(null);
-                                            setServiceName('');
-                                            setServiceAmount('');
-                                            setServiceDescription('');
-                                            setServiceHasIva(false);
-                                            setIsServiceModalOpen(true);
-                                        }} className="w-full text-center text-xs font-semibold py-2 rounded-lg border border-dashed border-slate-300 dark:border-slate-700 text-slate-500 hover:text-blue-600 hover:border-blue-500 transition-colors flex items-center justify-center gap-1.5 cursor-pointer">
-                                            <Plus size={14} /> Agregar Servicio
-                                        </button>
+                                            {currentSubTab === 'SERVICES' && (
+                                                <button onClick={() => {
+                                                    setSelectedProviderForService(prov);
+                                                    setSelectedService(null);
+                                                    setServiceName('');
+                                                    setServiceAmount('');
+                                                    setServiceDescription('');
+                                                    setServiceHasIva(false);
+                                                    setIsServiceModalOpen(true);
+                                                }} className="w-full text-center text-xs font-semibold py-2 rounded-lg border border-dashed border-slate-300 dark:border-slate-700 text-slate-500 hover:text-blue-600 hover:border-blue-500 transition-colors flex items-center justify-center gap-1.5 cursor-pointer">
+                                                    <Plus size={14} /> Agregar Servicio
+                                                </button>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+                ) : activeTab === 'REPORTS' ? (
+                    <div className="p-6 animate-in fade-in duration-200 space-y-6">
+                        {getExpensesByMonthAndProvider().length === 0 ? (
+                            <div className="text-center py-12 text-slate-500 dark:text-slate-400">
+                                <TrendingUp size={48} className="mx-auto mb-3 text-slate-300 dark:text-slate-700" />
+                                <p className="text-lg font-medium">No se encontraron gastos en el resumen</p>
+                                <p className="text-sm">Asegúrate de que haya gastos registrados con proveedores.</p>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {getExpensesByMonthAndProvider().map((item) => (
+                                    <div key={item.monthKey} className="bg-slate-50/60 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
+                                        <div>
+                                            <div className="flex justify-between items-center mb-4 pb-2 border-b border-slate-200 dark:border-slate-800">
+                                                <h4 className="font-bold text-slate-800 dark:text-slate-100 text-lg flex items-center gap-2">
+                                                    <Calendar size={20} className="text-purple-500" />
+                                                    {item.monthLabel}
+                                                </h4>
+                                                <span className="text-sm font-bold text-slate-900 dark:text-slate-205 bg-white dark:bg-slate-800 shadow-sm px-3 py-1 rounded-lg border border-slate-200 dark:border-slate-700">
+                                                    {formatCurrency(item.monthTotal)}
+                                                </span>
+                                            </div>
+
+                                            <div className="space-y-4">
+                                                {item.providers.map((p) => {
+                                                    const percentage = item.monthTotal > 0 ? (p.total / item.monthTotal) * 100 : 0;
+                                                    return (
+                                                        <div key={p.name} className="space-y-1">
+                                                            <div className="flex justify-between text-sm">
+                                                                <span className="font-semibold text-slate-750 dark:text-slate-250 flex items-center gap-1.5">
+                                                                    <Building2 size={14} className="text-slate-400" />
+                                                                    {p.name}
+                                                                </span>
+                                                                <span className="font-bold text-slate-900 dark:text-slate-105">
+                                                                    {formatCurrency(p.total)}
+                                                                    <span className="text-xs font-normal text-slate-400 dark:text-slate-500 ml-1.5">({percentage.toFixed(0)}%)</span>
+                                                                </span>
+                                                            </div>
+                                                            <div className="w-full bg-slate-200 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+                                                                <div 
+                                                                    className="bg-purple-550 dark:bg-purple-500 h-full rounded-full transition-all duration-500"
+                                                                    style={{ width: `${percentage}%` }}
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
