@@ -949,74 +949,78 @@ export async function deleteProviderService(id: number) {
 }
 
 export async function copyExpensesFromPreviousMonth() {
-    await requireAuth();
+    try {
+        await requireAuth();
 
-    const today = new Date();
-    const currentYear = today.getFullYear();
-    const currentMonth = today.getMonth(); // 0-indexed
+        const today = new Date();
+        const currentYear = today.getFullYear();
+        const currentMonth = today.getMonth(); // 0-indexed
 
-    // Calculate start and end of previous month in UTC to be timezone-independent
-    let prevYear = currentYear;
-    let prevMonth = currentMonth - 1;
-    if (prevMonth < 0) {
-        prevMonth = 11;
-        prevYear -= 1;
-    }
-    const prevMonthStart = new Date(Date.UTC(prevYear, prevMonth, 1, 0, 0, 0, 0));
-    const prevMonthEnd = new Date(Date.UTC(prevYear, prevMonth + 1, 0, 23, 59, 59, 999));
-
-    // Query expenses of previous month
-    const oldExpenses = await prisma.expense.findMany({
-        where: {
-            date: {
-                gte: prevMonthStart,
-                lte: prevMonthEnd
-            }
+        // Calculate start and end of previous month in UTC to be timezone-independent
+        let prevYear = currentYear;
+        let prevMonth = currentMonth - 1;
+        if (prevMonth < 0) {
+            prevMonth = 11;
+            prevYear -= 1;
         }
-    });
+        const prevMonthStart = new Date(Date.UTC(prevYear, prevMonth, 1, 0, 0, 0, 0));
+        const prevMonthEnd = new Date(Date.UTC(prevYear, prevMonth + 1, 0, 23, 59, 59, 999));
 
-    if (oldExpenses.length === 0) {
-        throw new Error("No se encontraron gastos en el mes anterior para copiar.");
+        // Query expenses of previous month
+        const oldExpenses = await prisma.expense.findMany({
+            where: {
+                date: {
+                    gte: prevMonthStart,
+                    lte: prevMonthEnd
+                }
+            }
+        });
+
+        if (oldExpenses.length === 0) {
+            return { success: false, error: "No se encontraron gastos en el mes anterior para copiar." };
+        }
+
+        // Map to current month
+        const newExpensesData = oldExpenses.map(old => {
+            const oldDate = new Date(old.date);
+            const oldDay = oldDate.getUTCDate(); // Use UTC date to avoid local offset shifts
+            const maxDays = new Date(Date.UTC(currentYear, currentMonth + 1, 0)).getUTCDate();
+            const clampedDay = Math.min(oldDay, maxDays);
+            
+            // Construct new date in UTC
+            const newDate = new Date(Date.UTC(
+                currentYear, 
+                currentMonth, 
+                clampedDay, 
+                oldDate.getUTCHours(), 
+                oldDate.getUTCMinutes(), 
+                oldDate.getUTCSeconds()
+            ));
+
+            return {
+                name: old.name,
+                description: old.description,
+                amount: old.amount,
+                hasIva: old.hasIva,
+                baseAmount: old.baseAmount,
+                ivaAmount: old.ivaAmount,
+                provider: old.provider,
+                receiptUrl: null, // Receipts are not copied
+                date: newDate
+            };
+        });
+
+        // Bulk create
+        await prisma.expense.createMany({
+            data: newExpensesData
+        });
+
+        revalidatePath("/gastos");
+        revalidatePath("/");
+        return { success: true, count: newExpensesData.length };
+    } catch (e: any) {
+        return { success: false, error: e.message || "Error interno al copiar los gastos del mes anterior." };
     }
-
-    // Map to current month
-    const newExpensesData = oldExpenses.map(old => {
-        const oldDate = new Date(old.date);
-        const oldDay = oldDate.getUTCDate(); // Use UTC date to avoid local offset shifts
-        const maxDays = new Date(Date.UTC(currentYear, currentMonth + 1, 0)).getUTCDate();
-        const clampedDay = Math.min(oldDay, maxDays);
-        
-        // Construct new date in UTC
-        const newDate = new Date(Date.UTC(
-            currentYear, 
-            currentMonth, 
-            clampedDay, 
-            oldDate.getUTCHours(), 
-            oldDate.getUTCMinutes(), 
-            oldDate.getUTCSeconds()
-        ));
-
-        return {
-            name: old.name,
-            description: old.description,
-            amount: old.amount,
-            hasIva: old.hasIva,
-            baseAmount: old.baseAmount,
-            ivaAmount: old.ivaAmount,
-            provider: old.provider,
-            receiptUrl: null, // Receipts are not copied
-            date: newDate
-        };
-    });
-
-    // Bulk create
-    await prisma.expense.createMany({
-        data: newExpensesData
-    });
-
-    revalidatePath("/gastos");
-    revalidatePath("/");
-    return { count: newExpensesData.length };
 }
 
 

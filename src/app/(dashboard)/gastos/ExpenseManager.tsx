@@ -207,6 +207,9 @@ export default function ExpenseManager({
         handleAction(
             async () => {
                 const res = await copyExpensesFromPreviousMonth();
+                if (!res.success) {
+                    throw new Error(res.error);
+                }
                 return res;
             },
             () => alert("Gastos del mes anterior copiados con éxito.")
