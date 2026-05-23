@@ -75,6 +75,19 @@ export default function ExpenseManager({
     // Sub-tab states for each provider card
     const [providerSubTabs, setProviderSubTabs] = useState<{ [providerId: number]: 'SERVICES' | 'SPENDING' }>({});
 
+    // States for Expense Detail Modal
+    const [detailModal, setDetailModal] = useState<{ open: boolean; providerName: string; monthLabel: string; expenses: any[] }>({ open: false, providerName: '', monthLabel: '', expenses: [] });
+
+    const getExpensesDetailForProviderInMonth = (providerName: string, year: number, month: number) => {
+        return initialExpenses.filter(e => {
+            if (!e.provider) return false;
+            const eDate = new Date(e.date);
+            return e.provider.trim().toUpperCase() === providerName.trim().toUpperCase()
+                && eDate.getFullYear() === year
+                && eDate.getMonth() === month;
+        });
+    };
+
 
     const filteredExpenses = initialExpenses.filter(expense => {
         const expenseDate = new Date(expense.date);
@@ -458,12 +471,24 @@ export default function ExpenseManager({
                                                             <p className="text-sm text-slate-500 dark:text-slate-400 italic text-center py-4">No hay gastos registrados para este proveedor.</p>
                                                         ) : (
                                                             <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                                                                {monthlySpending.map((item) => (
-                                                                    <div key={item.key} className="flex justify-between items-center bg-white dark:bg-slate-900/60 p-2.5 rounded-lg border border-slate-100 dark:border-slate-800/80 text-sm shadow-sm">
-                                                                        <span className="font-medium text-slate-700 dark:text-slate-350">{item.monthName}</span>
-                                                                        <span className="font-bold text-rose-600 dark:text-rose-400">{formatCurrency(item.amount)}</span>
-                                                                    </div>
-                                                                ))}
+                                                                {monthlySpending.map((item) => {
+                                                                    const [yearStr, monthStr] = item.key.split('-');
+                                                                    const yearNum = parseInt(yearStr);
+                                                                    const monthNum = parseInt(monthStr) - 1;
+                                                                    return (
+                                                                        <div
+                                                                            key={item.key}
+                                                                            onClick={() => {
+                                                                                const details = getExpensesDetailForProviderInMonth(prov.name, yearNum, monthNum);
+                                                                                setDetailModal({ open: true, providerName: prov.name, monthLabel: item.monthName, expenses: details });
+                                                                            }}
+                                                                            className="flex justify-between items-center bg-white dark:bg-slate-900/60 p-2.5 rounded-lg border border-slate-100 dark:border-slate-800/80 text-sm shadow-sm hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-200 dark:hover:border-blue-800 cursor-pointer transition-all"
+                                                                        >
+                                                                            <span className="font-medium text-slate-700 dark:text-slate-350">{item.monthName}</span>
+                                                                            <span className="font-bold text-rose-600 dark:text-rose-400">{formatCurrency(item.amount)}</span>
+                                                                        </div>
+                                                                    );
+                                                                })}
                                                             </div>
                                                         )}
                                                     </div>
@@ -992,6 +1017,54 @@ export default function ExpenseManager({
                     </div>
                 </div>
             )}
-        </div>
+        
+            {/* MODAL DETALLE DE GASTOS */}
+            {detailModal.open && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200 p-4">
+                    <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-2xl max-h-[80vh] flex flex-col">
+                        <div className="flex items-center justify-between p-5 border-b border-slate-200 dark:border-slate-800 shrink-0">
+                            <div>
+                                <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">
+                                    Detalle de Gastos
+                                </h3>
+                                <p className="text-sm text-slate-500 dark:text-slate-400">
+                                    {detailModal.providerName} — {detailModal.monthLabel}
+                                </p>
+                            </div>
+                            <button onClick={() => setDetailModal({ open: false, providerName: '', monthLabel: '', expenses: [] })} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer">
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div className="overflow-y-auto p-5 flex-1">
+                            {detailModal.expenses.length === 0 ? (
+                                <p className="text-center text-slate-500 dark:text-slate-400 py-8">No hay gastos detallados para este período.</p>
+                            ) : (
+                                <div className="space-y-3">
+                                    {detailModal.expenses.map((exp: any) => (
+                                        <div key={exp.id} className="flex items-center justify-between bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border border-slate-100 dark:border-slate-800">
+                                            <div className="flex-1 min-w-0">
+                                                <p className="font-semibold text-slate-800 dark:text-slate-200 truncate">{exp.name}</p>
+                                                <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 mt-1">
+                                                    <span>{new Date(exp.date).toLocaleDateString()}</span>
+                                                    {exp.description && <span className="truncate">— {exp.description}</span>}
+                                                    {exp.hasIva && <span className="bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 px-1.5 py-0.5 rounded text-[10px] font-bold">IVA</span>}
+                                                </div>
+                                            </div>
+                                            <span className="font-bold text-rose-600 dark:text-rose-400 shrink-0 ml-4">{formatCurrency(exp.amount)}</span>
+                                        </div>
+                                    ))}
+                                    <div className="flex justify-between items-center pt-3 mt-2 border-t border-slate-200 dark:border-slate-800">
+                                        <span className="font-bold text-slate-700 dark:text-slate-300">Total</span>
+                                        <span className="font-bold text-lg text-rose-600 dark:text-rose-400">
+                                            {formatCurrency(detailModal.expenses.reduce((sum: number, e: any) => sum + e.amount, 0))}
+                                        </span>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+</div>
     );
 }
