@@ -177,6 +177,7 @@ export default function SalesManager({ initialSales, clients, services, paymentM
                                 <th className="p-4 font-semibold text-slate-600 dark:text-slate-300 text-sm">Fecha/Ciclo</th>
                                 <th className="p-4 font-semibold text-slate-600 dark:text-slate-300 text-sm">Cliente</th>
                                 <th className="p-4 font-semibold text-slate-600 dark:text-slate-300 text-sm">Servicio Vendido</th>
+                                <th className="p-4 font-semibold text-slate-600 dark:text-slate-300 text-sm">N° Factura</th>
                                 {role === 'ADMIN' && (
                                     <>
                                         <th className="p-4 font-semibold text-slate-600 dark:text-slate-300 text-sm">Precio Venta</th>
@@ -191,7 +192,7 @@ export default function SalesManager({ initialSales, clients, services, paymentM
                         </thead>
                         <tbody className={isPending ? 'opacity-50 pointer-events-none' : ''}>
                             {filteredSales.length === 0 ? (
-                                <tr><td colSpan={9} className="p-8 text-center text-slate-500 dark:text-slate-400">No hay facturas o deudas registradas en este periodo.</td></tr>
+                                <tr><td colSpan={10} className="p-8 text-center text-slate-500 dark:text-slate-400">No hay facturas o deudas registradas en este periodo.</td></tr>
                             ) : filteredSales.map((sale: any) => {
                                 // Lógica de Respaldo Histórico (Snapshot)
                                 const clientName = sale.client?.name || sale.clientName;
@@ -258,6 +259,13 @@ export default function SalesManager({ initialSales, clients, services, paymentM
                                                     </>
                                                 );
                                             })()}
+                                        </td>
+                                        <td className="p-4">
+                                            {sale.invoiceNumber ? (
+                                                <span className="font-bold text-indigo-600 dark:text-indigo-400 text-sm">{sale.invoiceNumber}</span>
+                                            ) : (
+                                                <span className="text-xs text-slate-400 italic">Sin factura</span>
+                                            )}
                                         </td>
                                         {role === 'ADMIN' && (
                                             <>
